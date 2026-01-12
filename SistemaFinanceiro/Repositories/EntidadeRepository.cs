@@ -1,4 +1,4 @@
-﻿using SistemaFinanceiro.Database; // Confirma que está usando a conexão correta
+﻿using SistemaFinanceiro.Database;
 using SistemaFinanceiro.Models;
 using System;
 using System.Collections.Generic;
@@ -8,115 +8,106 @@ namespace SistemaFinanceiro.Repositories
 {
     public class EntidadeRepository
     {
-        // =====================================================================
-        //                    INSERIR (CRIAR NOVO)
-        // =====================================================================
+        // Cadastro e Atualizações
         public void Inserir(Entidade entidade)
         {
-            using (var conn = DbConnection.GetConnection())
+            using (var conexao = DbConnection.GetConnection())
             {
-                conn.Open();
-                // CORREÇÃO: Nomes das colunas ajustados para minúsculo_com_underline (padrão do seu banco)
-                string sql = @"INSERT INTO Entidades 
-                     (nome, tipo_vinculo, cpf_atleta, cpf_pais, email_pais, telefone_pais, data_nascimento, categoria_id, status, valor_mensalidade, dia_vencimento) 
-                     VALUES 
-                     (@Nome, @TipoVinculo, @CpfAtleta, @CpfPais, @EmailPais, @TelefonePais, @DataNascimento, @Categoria_id, @Status, @Valor, @Dia)";
+                conexao.Open();
 
-                using (var cmd = new SqlCommand(sql, conn))
+                string query = @"INSERT INTO Entidades 
+                      (nome, tipo_vinculo, cpf_atleta, cpf_pais, email_pais, telefone_pais, data_nascimento, categoria_id, status, valor_mensalidade, dia_vencimento) 
+                      VALUES 
+                      (@Nome, @TipoVinculo, @CpfAtleta, @CpfPais, @EmailPais, @TelefonePais, @DataNascimento, @CategoriaId, @Status, @Valor, @Dia)";
+
+                using (var comando = new SqlCommand(query, conexao))
                 {
-                    cmd.Parameters.AddWithValue("@Nome", entidade.Nome);
-                    cmd.Parameters.AddWithValue("@TipoVinculo", entidade.TipoVinculo);
-                    cmd.Parameters.AddWithValue("@CpfAtleta", (object)entidade.CpfAtleta ?? DBNull.Value);
-                    cmd.Parameters.AddWithValue("@CpfPais", (object)entidade.CpfPais ?? DBNull.Value);
-                    cmd.Parameters.AddWithValue("@EmailPais", (object)entidade.EmailPais ?? DBNull.Value);
-                    cmd.Parameters.AddWithValue("@TelefonePais", (object)entidade.TelefonePais ?? DBNull.Value);
-                    cmd.Parameters.AddWithValue("@DataNascimento", entidade.DataNascimento);
-                    cmd.Parameters.AddWithValue("@Categoria_id", entidade.Categoria_id);
-                    cmd.Parameters.AddWithValue("@Status", entidade.Status);
+                    comando.Parameters.AddWithValue("@Nome", entidade.Nome);
+                    comando.Parameters.AddWithValue("@TipoVinculo", entidade.TipoVinculo);
+                    comando.Parameters.AddWithValue("@CpfAtleta", (object)entidade.CpfAtleta ?? DBNull.Value);
+                    comando.Parameters.AddWithValue("@CpfPais", (object)entidade.CpfPais ?? DBNull.Value);
+                    comando.Parameters.AddWithValue("@EmailPais", (object)entidade.EmailPais ?? DBNull.Value);
+                    comando.Parameters.AddWithValue("@TelefonePais", (object)entidade.TelefonePais ?? DBNull.Value);
+                    comando.Parameters.AddWithValue("@DataNascimento", entidade.DataNascimento);
+                    comando.Parameters.AddWithValue("@CategoriaId", entidade.Categoria_id);
+                    comando.Parameters.AddWithValue("@Status", entidade.Status);
 
-                    // Financeiro
-                    cmd.Parameters.AddWithValue("@Valor", entidade.ValorMensalidade);
-                    cmd.Parameters.AddWithValue("@Dia", entidade.DiaVencimento);
+                    // Dados financeiros
+                    comando.Parameters.AddWithValue("@Valor", entidade.ValorMensalidade);
+                    comando.Parameters.AddWithValue("@Dia", entidade.DiaVencimento);
 
-                    cmd.ExecuteNonQuery();
+                    comando.ExecuteNonQuery();
                 }
             }
         }
 
-        // =====================================================================
-        //                    ATUALIZAR (EDITAR EXISTENTE)
-        // =====================================================================
         public void Atualizar(Entidade entidade)
         {
-            using (var conn = DbConnection.GetConnection())
+            using (var conexao = DbConnection.GetConnection())
             {
-                conn.Open();
-                // CORREÇÃO: Nomes das colunas ajustados aqui também
-                string sql = @"UPDATE Entidades SET 
-                     nome=@Nome, 
-                     cpf_atleta=@CpfAtleta, 
-                     cpf_pais=@CpfPais, 
-                     email_pais=@EmailPais, 
-                     telefone_pais=@TelefonePais, 
-                     data_nascimento=@DataNascimento, 
-                     categoria_id=@Categoria_id,
-                     valor_mensalidade=@Valor, 
-                     dia_vencimento=@Dia 
-                     WHERE id_entidade=@Id";
+                conexao.Open();
 
-                using (var cmd = new SqlCommand(sql, conn))
+                string query = @"UPDATE Entidades SET 
+                      nome=@Nome, 
+                      cpf_atleta=@CpfAtleta, 
+                      cpf_pais=@CpfPais, 
+                      email_pais=@EmailPais, 
+                      telefone_pais=@TelefonePais, 
+                      data_nascimento=@DataNascimento, 
+                      categoria_id=@CategoriaId,
+                      valor_mensalidade=@Valor, 
+                      dia_vencimento=@Dia 
+                      WHERE id_entidade=@Id";
+
+                using (var comando = new SqlCommand(query, conexao))
                 {
-                    cmd.Parameters.AddWithValue("@Id", entidade.Id);
-                    cmd.Parameters.AddWithValue("@Nome", entidade.Nome);
-                    cmd.Parameters.AddWithValue("@CpfAtleta", (object)entidade.CpfAtleta ?? DBNull.Value);
-                    cmd.Parameters.AddWithValue("@CpfPais", (object)entidade.CpfPais ?? DBNull.Value);
-                    cmd.Parameters.AddWithValue("@EmailPais", (object)entidade.EmailPais ?? DBNull.Value);
-                    cmd.Parameters.AddWithValue("@TelefonePais", (object)entidade.TelefonePais ?? DBNull.Value);
-                    cmd.Parameters.AddWithValue("@DataNascimento", entidade.DataNascimento);
-                    cmd.Parameters.AddWithValue("@Categoria_id", entidade.Categoria_id);
+                    comando.Parameters.AddWithValue("@Id", entidade.Id);
+                    comando.Parameters.AddWithValue("@Nome", entidade.Nome);
+                    comando.Parameters.AddWithValue("@CpfAtleta", (object)entidade.CpfAtleta ?? DBNull.Value);
+                    comando.Parameters.AddWithValue("@CpfPais", (object)entidade.CpfPais ?? DBNull.Value);
+                    comando.Parameters.AddWithValue("@EmailPais", (object)entidade.EmailPais ?? DBNull.Value);
+                    comando.Parameters.AddWithValue("@TelefonePais", (object)entidade.TelefonePais ?? DBNull.Value);
+                    comando.Parameters.AddWithValue("@DataNascimento", entidade.DataNascimento);
+                    comando.Parameters.AddWithValue("@CategoriaId", entidade.Categoria_id);
 
-                    // Financeiro
-                    cmd.Parameters.AddWithValue("@Valor", entidade.ValorMensalidade);
-                    cmd.Parameters.AddWithValue("@Dia", entidade.DiaVencimento);
+                    // Dados financeiros
+                    comando.Parameters.AddWithValue("@Valor", entidade.ValorMensalidade);
+                    comando.Parameters.AddWithValue("@Dia", entidade.DiaVencimento);
 
-                    cmd.ExecuteNonQuery();
+                    comando.ExecuteNonQuery();
                 }
             }
         }
 
-        // =====================================================================
-        //                    OBTER POR ID (CARREGAR DADOS)
-        // =====================================================================
         public Entidade ObterPorId(int id)
         {
-            using (var conn = DbConnection.GetConnection())
+            using (var conexao = DbConnection.GetConnection())
             {
-                conn.Open();
-                string sql = "SELECT * FROM Entidades WHERE id_entidade = @id";
-                using (var cmd = new SqlCommand(sql, conn))
+                conexao.Open();
+                string query = "SELECT * FROM Entidades WHERE id_entidade = @id";
+
+                using (var comando = new SqlCommand(query, conexao))
                 {
-                    cmd.Parameters.AddWithValue("@id", id);
-                    using (var reader = cmd.ExecuteReader())
+                    comando.Parameters.AddWithValue("@id", id);
+                    using (var leitor = comando.ExecuteReader())
                     {
-                        if (reader.Read())
+                        if (leitor.Read())
                         {
-                            // CORREÇÃO: Ao ler do banco, usamos os nomes das colunas como estão lá (snake_case)
-                            // e jogamos para as propriedades do C# (PascalCase)
                             return new Entidade
                             {
-                                Id = (int)reader["id_entidade"],
-                                Nome = reader["nome"].ToString(),
-                                CpfAtleta = reader["cpf_atleta"] as string,
-                                CpfPais = reader["cpf_pais"] as string,
-                                EmailPais = reader["email_pais"] as string,
-                                TelefonePais = reader["telefone_pais"] as string,
-                                DataNascimento = (DateTime)reader["data_nascimento"],
-                                Categoria_id = (int)reader["categoria_id"],
-                                Status = reader["status"].ToString(),
+                                Id = (int)leitor["id_entidade"],
+                                Nome = leitor["nome"].ToString(),
+                                CpfAtleta = leitor["cpf_atleta"] as string,
+                                CpfPais = leitor["cpf_pais"] as string,
+                                EmailPais = leitor["email_pais"] as string,
+                                TelefonePais = leitor["telefone_pais"] as string,
+                                DataNascimento = (DateTime)leitor["data_nascimento"],
+                                Categoria_id = (int)leitor["categoria_id"],
+                                Status = leitor["status"].ToString(),
 
-                                // Lê os novos campos, verificando se são nulos
-                                ValorMensalidade = reader["valor_mensalidade"] != DBNull.Value ? (decimal)reader["valor_mensalidade"] : 0,
-                                DiaVencimento = reader["dia_vencimento"] != DBNull.Value ? (int)reader["dia_vencimento"] : 10
+                                // Verifica nulos para campos numéricos opcionais
+                                ValorMensalidade = leitor["valor_mensalidade"] != DBNull.Value ? (decimal)leitor["valor_mensalidade"] : 0,
+                                DiaVencimento = leitor["dia_vencimento"] != DBNull.Value ? (int)leitor["dia_vencimento"] : 10
                             };
                         }
                     }
@@ -125,95 +116,88 @@ namespace SistemaFinanceiro.Repositories
             return null;
         }
 
-        // =====================================================================
-        //                    OBTER TODOS (LISTAGEM)
-        // =====================================================================
         public List<dynamic> ObterTodos()
         {
-            var lista = new List<dynamic>();
-            using (var conn = DbConnection.GetConnection())
+            var listaResultados = new List<dynamic>();
+            using (var conexao = DbConnection.GetConnection())
             {
-                conn.Open();
-                // Join simples para pegar o nome da categoria
-                string sql = @"
+                conexao.Open();
+
+                // Traz a descrição da categoria junto com o aluno
+                string query = @"
                     SELECT e.id_entidade, e.nome, e.cpf_atleta, e.status, c.descricao as CategoriaDescricao 
                     FROM Entidades e
                     LEFT JOIN Categorias c ON e.categoria_id = c.categoria_id";
 
-                using (var cmd = new SqlCommand(sql, conn))
-                using (var reader = cmd.ExecuteReader())
+                using (var comando = new SqlCommand(query, conexao))
+                using (var leitor = comando.ExecuteReader())
                 {
-                    while (reader.Read())
+                    while (leitor.Read())
                     {
-                        // Aqui usamos um objeto anônimo (dynamic) para alimentar o GridView
-                        lista.Add(new
+                        listaResultados.Add(new
                         {
-                            id_entidade = reader["id_entidade"],
-                            Nome = reader["nome"],
-                            CpfAtleta = reader["cpf_atleta"],
-                            Status = reader["status"],
-                            CategoriaDescricao = reader["CategoriaDescricao"]
+                            id_entidade = leitor["id_entidade"],
+                            Nome = leitor["nome"],
+                            CpfAtleta = leitor["cpf_atleta"],
+                            Status = leitor["status"],
+                            CategoriaDescricao = leitor["CategoriaDescricao"]
                         });
                     }
                 }
             }
-            return lista;
+            return listaResultados;
         }
 
-        // =====================================================================
-        //                    OBTER CATEGORIAS (COMBOBOX)
-        // =====================================================================
         public List<dynamic> ObterCategorias()
         {
-            var lista = new List<dynamic>();
-            using (var conn = DbConnection.GetConnection())
+            var listaCategorias = new List<dynamic>();
+            using (var conexao = DbConnection.GetConnection())
             {
-                conn.Open();
-                string sql = "SELECT categoria_id, descricao FROM Categorias";
-                using (var cmd = new SqlCommand(sql, conn))
-                using (var reader = cmd.ExecuteReader())
+                conexao.Open();
+                string query = "SELECT categoria_id, descricao FROM Categorias";
+
+                using (var comando = new SqlCommand(query, conexao))
+                using (var leitor = comando.ExecuteReader())
                 {
-                    while (reader.Read())
+                    while (leitor.Read())
                     {
-                        lista.Add(new { Id = (int)reader["categoria_id"], Descricao = reader["descricao"].ToString() });
+                        listaCategorias.Add(new { Id = (int)leitor["categoria_id"], Descricao = leitor["descricao"].ToString() });
                     }
                 }
             }
-            return lista;
+            return listaCategorias;
         }
 
-        // =====================================================================
-        //                    ALTERNAR STATUS (ATIVO/INATIVO)
-        // =====================================================================
         public void AlternarStatus(int id)
         {
-            using (var conn = DbConnection.GetConnection())
+            using (var conexao = DbConnection.GetConnection())
             {
-                conn.Open();
-                string sql = @"
+                conexao.Open();
+                string query = @"
                     UPDATE Entidades 
                     SET status = CASE WHEN status = 'Ativo' THEN 'Inativo' ELSE 'Ativo' END 
                     WHERE id_entidade = @id";
 
-                using (var cmd = new SqlCommand(sql, conn))
+                using (var comando = new SqlCommand(query, conexao))
                 {
-                    cmd.Parameters.AddWithValue("@id", id);
-                    cmd.ExecuteNonQuery();
+                    comando.Parameters.AddWithValue("@id", id);
+                    comando.ExecuteNonQuery();
                 }
             }
         }
+
         public void Excluir(int id)
         {
-            using (var conn = DbConnection.GetConnection())
+            using (var conexao = DbConnection.GetConnection())
             {
-                conn.Open();
-                // Cuidado: Se tiver cobranças vinculadas, vai dar erro de FK.
-                // O ideal é Inativar (AlternarStatus), mas se quiser excluir mesmo:
-                string sql = "DELETE FROM Entidades WHERE id_entidade = @id";
-                using (var cmd = new SqlCommand(sql, conn))
+                conexao.Open();
+
+                string query = "DELETE FROM Entidades WHERE id_entidade = @id";
+
+                using (var comando = new SqlCommand(query, conexao))
                 {
-                    cmd.Parameters.AddWithValue("@id", id);
-                    cmd.ExecuteNonQuery();
+                    comando.Parameters.AddWithValue("@id", id);
+                    comando.ExecuteNonQuery();
                 }
             }
         }

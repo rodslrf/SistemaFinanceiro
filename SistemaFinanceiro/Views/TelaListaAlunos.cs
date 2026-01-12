@@ -11,40 +11,11 @@ namespace SistemaFinanceiro.Views
 {
     public partial class TelaListaAlunos : UserControl
     {
-        // ================= CORES (PADRÃO DARK) =================
-        private readonly Color CorFundo = ColorTranslator.FromHtml("#0d1117");
-        private readonly Color CorSidebar = ColorTranslator.FromHtml("#161b22");
-        private readonly Color CorTexto = ColorTranslator.FromHtml("#c9d1d9");
-        private readonly Color CorBorda = ColorTranslator.FromHtml("#30363d");
-
-        // Cores Botões Principais
-        private readonly Color CorBotaoNovo = ColorTranslator.FromHtml("#238636");
-        // private readonly Color CorBotaoLimpar = ColorTranslator.FromHtml("#30363d"); // Não usado diretamente, mas parte do tema
-
-        // Cores Ação (Editar/Excluir)
-        private readonly Color CorEditar = ColorTranslator.FromHtml("#d9a648"); // Amarelo
-        private readonly Color CorExcluir = ColorTranslator.FromHtml("#ff7b72"); // Vermelho
-        private readonly Color CorEditarSuave = Color.FromArgb(25, 217, 166, 72);
-        private readonly Color CorExcluirSuave = Color.FromArgb(25, 255, 123, 114);
-
-        // Cores Badge Status
-        private readonly Color CorAtivoFundo = ColorTranslator.FromHtml("#d1e7dd"); // Verde Claro
-        private readonly Color CorAtivoTexto = ColorTranslator.FromHtml("#0f5132"); // Verde Escuro
-        private readonly Color CorInativoFundo = ColorTranslator.FromHtml("#f8d7da"); // Vermelho Claro
-        private readonly Color CorInativoTexto = ColorTranslator.FromHtml("#842029"); // Vermelho Escuro
-
-        private static DateTime? _confirmacaoDesativadaAte = null;
-
-        // CONTROLES
-        private TextBox txtBusca;
-        private DarkComboBox cmbFiltroCategoria;
-        private DarkComboBox cmbFiltroStatus;
+        private TextBox _search;
+        private DarkComboBox _cmbCat, _cmbStatus;
         private DataGridView _grid;
+        private List<dynamic> _data = new List<dynamic>();
 
-        // DADOS
-        private List<dynamic> _listaOriginal = new List<dynamic>();
-
-        // EVENTOS
         public event EventHandler IrParaCadastro;
         public event EventHandler<int> EditarAluno;
         public event EventHandler<int> ExcluirAluno;
@@ -52,312 +23,185 @@ namespace SistemaFinanceiro.Views
         public TelaListaAlunos()
         {
             InitializeComponent();
-            this.Dock = DockStyle.Fill;
-            this.BackColor = CorFundo;
-            this.Padding = new Padding(40);
-            if (!this.DesignMode) ConfigurarLayout();
+            Dock = DockStyle.Fill;
+            if (!DesignMode) { SetupUI(); ApplyTheme(); }
         }
 
-        private void ConfigurarLayout()
+        public void ApplyTheme()
         {
-            this.Controls.Clear();
-
-            // 1. HEADER
-            Panel header = new Panel { Dock = DockStyle.Top, Height = 60 };
-            Label lblTitulo = new Label { Text = "Alunos Cadastrados", Font = new Font("Segoe UI", 20, FontStyle.Bold), ForeColor = CorTexto, AutoSize = true, Location = new Point(0, 10) };
-
-            Button btnNovo = new Button { Text = "+  Novo Aluno", BackColor = CorBotaoNovo, ForeColor = Color.White, FlatStyle = FlatStyle.Flat, Font = new Font("Segoe UI", 10, FontStyle.Bold), Height = 40, Width = 150, Cursor = Cursors.Hand, Anchor = AnchorStyles.Top | AnchorStyles.Right, Location = new Point(this.Width - 190, 10) };
-            btnNovo.FlatAppearance.BorderSize = 0;
-            btnNovo.Click += (s, e) => IrParaCadastro?.Invoke(this, EventArgs.Empty);
-            header.Resize += (s, e) => btnNovo.Left = header.Width - 160;
-            header.Controls.Add(lblTitulo); header.Controls.Add(btnNovo);
-
-            // 2. FILTROS (4 Colunas agora)
-            Panel pnlFiltros = new Panel { Dock = DockStyle.Top, Height = 80, Padding = new Padding(0, 15, 0, 15) };
-            TableLayoutPanel layoutFiltros = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 4, RowCount = 1, BackColor = Color.Transparent };
-            layoutFiltros.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 40F)); // Busca
-            layoutFiltros.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20F)); // Categoria
-            layoutFiltros.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20F)); // Status
-            layoutFiltros.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20F)); // Limpar
-
-            // Inputs
-            txtBusca = CriarInputBusca("Pesquisar por Nome ou CPF...");
-            txtBusca.TextChanged += (s, e) => AplicarFiltros();
-
-            cmbFiltroCategoria = new DarkComboBox { ParentBackColor = CorSidebar, ForeColor = CorTexto, BorderColor = CorBorda };
-            CarregarCategoriasFiltro();
-            cmbFiltroCategoria.SelectedIndexChanged += (s, e) => AplicarFiltros();
-
-            cmbFiltroStatus = new DarkComboBox { ParentBackColor = CorSidebar, ForeColor = CorTexto, BorderColor = CorBorda };
-            cmbFiltroStatus.Items.AddRange(new object[] { "Todos Status", "Ativos", "Inativos" });
-            cmbFiltroStatus.SelectedIndex = 0;
-            cmbFiltroStatus.SelectedIndexChanged += (s, e) => AplicarFiltros();
-
-            Button btnLimpar = CriarBotaoLimpar();
-            btnLimpar.Click += (s, e) => LimparFiltros();
-
-            // Adiciona wrappers
-            layoutFiltros.Controls.Add(CriarWrapperFiltro(txtBusca), 0, 0);
-            layoutFiltros.Controls.Add(CriarWrapperFiltro(cmbFiltroCategoria), 1, 0);
-            layoutFiltros.Controls.Add(CriarWrapperFiltro(cmbFiltroStatus), 2, 0);
-            layoutFiltros.Controls.Add(CriarWrapperBotao(btnLimpar), 3, 0);
-            pnlFiltros.Controls.Add(layoutFiltros);
-
-            // 3. GRID
-            Panel gridContainer = new Panel { Dock = DockStyle.Fill, Padding = new Padding(0, 10, 0, 0) };
-            _grid = new DataGridView();
-            ConfigurarEstiloGrid(_grid);
-            _grid.Dock = DockStyle.Fill;
-            gridContainer.Controls.Add(_grid);
-
-            this.Controls.Add(gridContainer);
-            this.Controls.Add(pnlFiltros);
-            this.Controls.Add(header);
-
-            CarregarDadosNoGrid();
-        }
-
-        // ================= WRAPPERS E HELPERS =================
-        private Panel CriarWrapperFiltro(Control ctrl)
-        {
-            Panel p = new Panel { Dock = DockStyle.Fill, Padding = new Padding(0, 0, 15, 0), BackColor = Color.Transparent };
-            Panel b = new Panel { Dock = DockStyle.Top, Height = 45, BackColor = CorSidebar, Padding = new Padding(10, 11, 5, 5) };
-            b.Paint += (s, e) => ControlPaint.DrawBorder(e.Graphics, b.ClientRectangle, CorBorda, ButtonBorderStyle.Solid);
-            ctrl.Dock = DockStyle.Top; ctrl.BackColor = CorSidebar; ctrl.ForeColor = CorTexto;
-            if (ctrl is TextBox t) t.BorderStyle = BorderStyle.None;
-            b.Controls.Add(ctrl); p.Controls.Add(b); return p;
-        }
-
-        private Panel CriarWrapperBotao(Control ctrl)
-        {
-            Panel p = new Panel { Dock = DockStyle.Fill, BackColor = Color.Transparent };
-            Panel b = new Panel { Dock = DockStyle.Top, Height = 45, BackColor = CorSidebar };
-            b.Paint += (s, e) => ControlPaint.DrawBorder(e.Graphics, b.ClientRectangle, CorBorda, ButtonBorderStyle.Solid);
-            ctrl.Dock = DockStyle.Fill; b.Controls.Add(ctrl); p.Controls.Add(b); return p;
-        }
-
-        private TextBox CriarInputBusca(string ph)
-        {
-            var txt = new TextBox { Font = new Font("Segoe UI", 11), ForeColor = Color.Gray, Text = ph };
-            txt.GotFocus += (s, e) => { if (txt.Text == ph) { txt.Text = ""; txt.ForeColor = CorTexto; } };
-            txt.LostFocus += (s, e) => { if (string.IsNullOrWhiteSpace(txt.Text)) { txt.Text = ph; txt.ForeColor = Color.Gray; } };
-            return txt;
-        }
-
-        private Button CriarBotaoLimpar()
-        {
-            Button btn = new Button { Text = "Limpar", Font = new Font("Segoe UI", 10, FontStyle.Bold), ForeColor = CorTexto, BackColor = CorSidebar, FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, Dock = DockStyle.Fill };
-            btn.FlatAppearance.BorderSize = 0;
-            return btn;
-        }
-
-        // ================= GRID =================
-        private void ConfigurarEstiloGrid(DataGridView grid)
-        {
-            grid.AllowUserToResizeColumns = false; grid.AllowUserToResizeRows = false;
-            grid.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
-            grid.ReadOnly = true; grid.AllowUserToAddRows = false; grid.AllowUserToDeleteRows = false;
-            grid.MultiSelect = false; grid.RowHeadersVisible = false;
-            grid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
-            grid.BorderStyle = BorderStyle.None;
-            grid.BackgroundColor = CorFundo;
-            grid.CellBorderStyle = DataGridViewCellBorderStyle.Single;
-            grid.GridColor = CorBorda;
-
-            // Correção do Bug Azul
-            grid.EnableHeadersVisualStyles = false;
-            grid.ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.Single;
-            grid.ColumnHeadersDefaultCellStyle.BackColor = CorSidebar;
-            grid.ColumnHeadersDefaultCellStyle.ForeColor = CorTexto;
-            grid.ColumnHeadersDefaultCellStyle.SelectionBackColor = CorSidebar; // Remove azul
-            grid.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 14, FontStyle.Bold);
-            grid.ColumnHeadersDefaultCellStyle.Padding = new Padding(10);
-            grid.ColumnHeadersHeight = 60;
-            grid.ColumnHeadersDefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
-
-            grid.DefaultCellStyle.BackColor = CorFundo;
-            grid.DefaultCellStyle.ForeColor = CorTexto;
-            grid.DefaultCellStyle.Font = new Font("Segoe UI", 10);
-            grid.DefaultCellStyle.Padding = new Padding(5, 0, 5, 0);
-            grid.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
-            grid.RowTemplate.Height = 55;
-            grid.DefaultCellStyle.SelectionBackColor = CorFundo; // Remove azul
-            grid.DefaultCellStyle.SelectionForeColor = CorTexto;
-        }
-
-        private void CarregarDadosNoGrid()
-        {
-            try
+            BackColor = TemaGlobal.CorFundo;
+            if (_grid != null)
             {
-                if (_grid.Columns.Count == 0)
-                {
-                    _grid.AutoGenerateColumns = false;
-                    AdicionarColuna(_grid, "id_entidade", "ID", 0).Visible = false;
-
-                    var colNome = AdicionarColuna(_grid, "Nome", "Nome do Aluno");
-                    colNome.FillWeight = 250;
-                    colNome.DefaultCellStyle.Font = new Font("Segoe UI", 12, FontStyle.Regular);
-                    colNome.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleLeft; // Alinhado esquerda
-
-                    AdicionarColuna(_grid, "CpfAtleta", "CPF", 140);
-                    AdicionarColuna(_grid, "CategoriaDescricao", "Categoria", 160);
-
-                    _grid.Columns.Add(new DataGridViewButtonColumn { DataPropertyName = "Status", HeaderText = "Status", Width = 150 });
-                    _grid.Columns.Add(new DataGridViewButtonColumn { HeaderText = "Editar", Width = 100 });
-                    _grid.Columns.Add(new DataGridViewButtonColumn { HeaderText = "Excluir", Width = 100 });
-
-                    ConfigurarEventosGrid();
-                }
-
-                var repo = new EntidadeRepository();
-                _listaOriginal = repo.ObterTodos();
-                AplicarFiltros();
+                _grid.BackgroundColor = _grid.DefaultCellStyle.BackColor = _grid.DefaultCellStyle.SelectionBackColor = TemaGlobal.CorFundo;
+                _grid.GridColor = TemaGlobal.CorBorda;
+                _grid.DefaultCellStyle.ForeColor = _grid.DefaultCellStyle.SelectionForeColor = _grid.ColumnHeadersDefaultCellStyle.ForeColor = TemaGlobal.CorTexto;
+                _grid.ColumnHeadersDefaultCellStyle.BackColor = _grid.ColumnHeadersDefaultCellStyle.SelectionBackColor = TemaGlobal.CorSidebar;
             }
-            catch { }
+            foreach (Control c in Controls) RecursiveUpdate(c);
+            Invalidate();
         }
 
-        private void ConfigurarEventosGrid()
+        private void RecursiveUpdate(Control c)
         {
-            _grid.CellPainting += (s, e) => {
-                if (e.RowIndex < 0) return;
+            if (c is Label) c.ForeColor = TemaGlobal.CorTexto;
+            if (c is TextBox) { c.BackColor = TemaGlobal.CorSidebar; c.ForeColor = TemaGlobal.CorTexto; }
+            if (c is DarkComboBox cmb) { cmb.ParentBackColor = TemaGlobal.CorSidebar; cmb.Invalidate(); }
+            if (c is Panel) c.Invalidate();
+            foreach (Control k in c.Controls) RecursiveUpdate(k);
+        }
 
-                // Proteção contra linhas vazias
-                if (e.RowIndex >= _grid.Rows.Count) return;
+        // Layout
+        private void SetupUI()
+        {
+            Controls.Clear();
 
-                bool isStatus = (_grid.Columns[e.ColumnIndex].HeaderText == "Status");
-                bool isEditar = (_grid.Columns[e.ColumnIndex].HeaderText == "Editar");
-                bool isExcluir = (_grid.Columns[e.ColumnIndex].HeaderText == "Excluir");
+            // Header
+            var h = new Panel { Dock = DockStyle.Top, Height = 60 };
+            var t = new Label { Text = "Alunos Cadastrados", Font = new Font("Segoe UI", 20, FontStyle.Bold), AutoSize = true, Location = new Point(0, 10) };
+            var b = new Button { Text = "+  Novo Aluno", BackColor = ColorTranslator.FromHtml("#238636"), ForeColor = Color.White, FlatStyle = FlatStyle.Flat, Font = new Font("Segoe UI", 10, FontStyle.Bold), Height = 40, Width = 150, Cursor = Cursors.Hand, Anchor = AnchorStyles.Top | AnchorStyles.Right, Location = new Point(Width - 190, 10) };
+            b.FlatAppearance.BorderSize = 0; b.Click += (s, e) => IrParaCadastro?.Invoke(this, EventArgs.Empty);
+            h.Resize += (s, e) => b.Left = h.Width - 160; h.Controls.Add(t); h.Controls.Add(b);
 
-                if (isStatus || isEditar || isExcluir)
+            // Filters
+            var f = new Panel { Dock = DockStyle.Top, Height = 80, Padding = new Padding(0, 15, 0, 15) };
+            var tl = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 4, RowCount = 1, BackColor = Color.Transparent };
+            tl.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 40F)); tl.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20F)); tl.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20F)); tl.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20F));
+
+            _search = Input("Pesquisar por Nome ou CPF..."); _search.TextChanged += (s, e) => Filter();
+            _cmbCat = new DarkComboBox(); LoadCats(); _cmbCat.SelectedIndexChanged += (s, e) => Filter();
+            _cmbStatus = new DarkComboBox(); _cmbStatus.Items.AddRange(new[] { "Todos Status", "Ativos", "Inativos" }); _cmbStatus.SelectedIndex = 0; _cmbStatus.SelectedIndexChanged += (s, e) => Filter();
+            var bClr = Btn("Limpar"); bClr.Click += (s, e) => { _search.Text = "Pesquisar por Nome ou CPF..."; _search.ForeColor = Color.Gray; _cmbCat.SelectedIndex = 0; _cmbStatus.SelectedIndex = 0; };
+
+            tl.Controls.Add(Wrap(_search), 0, 0); tl.Controls.Add(Wrap(_cmbCat), 1, 0); tl.Controls.Add(Wrap(_cmbStatus), 2, 0); tl.Controls.Add(WrapBtn(bClr), 3, 0);
+            f.Controls.Add(tl);
+
+            // Grid
+            var gc = new Panel { Dock = DockStyle.Fill, Padding = new Padding(0, 10, 0, 0) };
+            _grid = new DataGridView(); SetupGrid(_grid); SetupCols(_grid); gc.Controls.Add(_grid);
+
+            Controls.Add(gc); Controls.Add(f); Controls.Add(h);
+            AddFooter(); LoadData();
+        }
+
+        private void AddFooter()
+        {
+            var f = new Panel { Dock = DockStyle.Bottom, Height = 40, BackColor = Color.Transparent, Padding = new Padding(0, 0, 20, 10) };
+            f.Controls.Add(new Label { Text = "@rodrigolopes_rf", Font = new Font("Segoe UI", 10), ForeColor = TemaGlobal.CorTexto, AutoSize = true, Dock = DockStyle.Right, Padding = new Padding(5, 2, 0, 0) });
+            f.Controls.Add(new Label { Text = "📷", Font = new Font("Segoe UI Emoji", 12), ForeColor = TemaGlobal.CorTexto, AutoSize = true, Dock = DockStyle.Right });
+            Controls.Add(f);
+        }
+
+        // Wrappers & Inputs
+        private Panel Wrap(Control c)
+        {
+            var p = new Panel { Dock = DockStyle.Fill, Padding = new Padding(0, 0, 10, 0), BackColor = Color.Transparent };
+            var b = new Panel { Dock = DockStyle.Top, Height = 45 };
+            b.Paint += (s, e) => { b.BackColor = TemaGlobal.CorSidebar; ControlPaint.DrawBorder(e.Graphics, b.ClientRectangle, TemaGlobal.CorBorda, ButtonBorderStyle.Solid); };
+            if (c is ComboBox)
+            {
+                var m = new Panel { BackColor = TemaGlobal.CorSidebar, Width = b.Width - 12, Height = c.Height - 6, Location = new Point(6, (b.Height - c.Height + 6) / 2) };
+                c.Dock = DockStyle.None; c.Location = new Point(-2, -3); c.Width = m.Width + 20; m.Controls.Add(c); b.Controls.Add(m);
+                b.Resize += (s, e) => { m.Width = b.Width - 12; m.Location = new Point(6, (b.Height - m.Height) / 2); c.Width = m.Width + 20; };
+            }
+            else
+            {
+                c.Dock = DockStyle.None; c.Anchor = AnchorStyles.Left | AnchorStyles.Right; c.Width = b.Width - 20; c.Location = new Point(10, (b.Height - c.Height) / 2);
+                if (c is TextBox t) t.BorderStyle = BorderStyle.None; b.Controls.Add(c);
+            }
+            p.Controls.Add(b); return p;
+        }
+        private Panel WrapBtn(Control c) { var p = new Panel { Dock = DockStyle.Fill, BackColor = Color.Transparent }; var b = new Panel { Dock = DockStyle.Top, Height = 45 }; b.Paint += (s, e) => { b.BackColor = TemaGlobal.CorSidebar; ControlPaint.DrawBorder(e.Graphics, b.ClientRectangle, TemaGlobal.CorBorda, ButtonBorderStyle.Solid); c.BackColor = TemaGlobal.CorSidebar; c.ForeColor = TemaGlobal.CorTexto; }; c.Dock = DockStyle.Fill; b.Controls.Add(c); p.Controls.Add(b); return p; }
+        private TextBox Input(string ph) { var t = new TextBox { Font = new Font("Segoe UI", 11), Text = ph, TextAlign = HorizontalAlignment.Center }; t.GotFocus += (s, e) => { if (t.Text == ph) { t.Text = ""; t.ForeColor = TemaGlobal.CorTexto; } }; t.LostFocus += (s, e) => { if (string.IsNullOrWhiteSpace(t.Text)) { t.Text = ph; t.ForeColor = Color.Gray; } }; return t; }
+        private Button Btn(string t) { var b = new Button { Text = t, Font = new Font("Segoe UI", 10, FontStyle.Bold), FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, Dock = DockStyle.Fill }; b.FlatAppearance.BorderSize = 0; return b; }
+
+        // Grid
+        private void SetupGrid(DataGridView g) { g.Dock = DockStyle.Fill; g.BorderStyle = BorderStyle.None; g.CellBorderStyle = DataGridViewCellBorderStyle.Single; g.EnableHeadersVisualStyles = false; g.ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.Single; g.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing; g.ColumnHeadersHeight = 50; g.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 14, FontStyle.Bold); g.ColumnHeadersDefaultCellStyle.Padding = new Padding(10); g.ColumnHeadersDefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter; g.AutoGenerateColumns = false; g.ReadOnly = true; g.SelectionMode = DataGridViewSelectionMode.FullRowSelect; g.RowHeadersVisible = false; g.AllowUserToResizeRows = false; g.AllowUserToResizeColumns = false; g.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill; g.RowTemplate.Height = 45; g.DefaultCellStyle.Font = new Font("Segoe UI", 10); g.DefaultCellStyle.Padding = new Padding(5, 0, 5, 0); g.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter; g.DefaultCellStyle.SelectionBackColor = TemaGlobal.CorFundo; g.DefaultCellStyle.SelectionForeColor = TemaGlobal.CorTexto; }
+        private void SetupCols(DataGridView g)
+        {
+            g.Columns.Clear(); g.AutoGenerateColumns = false;
+            var id = new DataGridViewTextBoxColumn { DataPropertyName = "id_entidade", Name = "id_entidade", HeaderText = "ID", Visible = false }; g.Columns.Add(id);
+            var n = new DataGridViewTextBoxColumn { DataPropertyName = "Nome", HeaderText = "Nome do Aluno", FillWeight = 250 }; n.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleLeft; g.Columns.Add(n);
+            g.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "CpfAtleta", HeaderText = "CPF", Width = 140 });
+            g.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "CategoriaDescricao", HeaderText = "Categoria", Width = 160 });
+            g.Columns.Add(new DataGridViewButtonColumn { DataPropertyName = "Status", HeaderText = "Status", Width = 150 });
+            g.Columns.Add(new DataGridViewButtonColumn { HeaderText = "Editar", Width = 100 });
+            g.Columns.Add(new DataGridViewButtonColumn { HeaderText = "Excluir", Width = 100 });
+
+            g.CellPainting += (s, e) => {
+                if (e.RowIndex < 0 || e.RowIndex >= g.Rows.Count) return;
+                bool st = g.Columns[e.ColumnIndex].HeaderText == "Status", ed = g.Columns[e.ColumnIndex].HeaderText == "Editar", ex = g.Columns[e.ColumnIndex].HeaderText == "Excluir";
+                if (st || ed || ex)
                 {
-                    using (Brush b = new SolidBrush(CorFundo)) e.Graphics.FillRectangle(b, e.CellBounds);
-                    using (Pen p = new Pen(CorBorda)) e.Graphics.DrawRectangle(p, e.CellBounds);
+                    using (var b = new SolidBrush(TemaGlobal.CorFundo)) e.Graphics.FillRectangle(b, e.CellBounds);
+                    using (var p = new Pen(TemaGlobal.CorBorda)) e.Graphics.DrawRectangle(p, e.CellBounds);
                     e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-
-                    if (isEditar || isExcluir)
+                    if (ed || ex)
                     {
-                        Color corBorda = isEditar ? CorEditar : CorExcluir;
-                        Color corFundo = isEditar ? CorEditarSuave : CorExcluirSuave;
-                        string icone = isEditar ? "✏️" : "🗑️";
-
-                        Rectangle rect = new Rectangle(e.CellBounds.X + 10, e.CellBounds.Y + 12, e.CellBounds.Width - 20, e.CellBounds.Height - 24);
-                        using (Brush brushSuave = new SolidBrush(corFundo)) e.Graphics.FillRectangle(brushSuave, rect);
-                        using (Pen pen = new Pen(corBorda, 1)) e.Graphics.DrawRectangle(pen, rect);
-                        TextRenderer.DrawText(e.Graphics, icone, new Font("Segoe UI Emoji", 10), rect, corBorda, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                        var c = ed ? ColorTranslator.FromHtml("#d9a648") : ColorTranslator.FromHtml("#ff7b72");
+                        var bg = ed ? Color.FromArgb(25, 217, 166, 72) : Color.FromArgb(25, 255, 123, 114);
+                        var r = new Rectangle(e.CellBounds.X + 10, e.CellBounds.Y + 10, e.CellBounds.Width - 20, e.CellBounds.Height - 20);
+                        using (var b = new SolidBrush(bg)) e.Graphics.FillRectangle(b, r); using (var p = new Pen(c, 1)) e.Graphics.DrawRectangle(p, r);
+                        TextRenderer.DrawText(e.Graphics, ed ? "✏️" : "🗑️", new Font("Segoe UI Emoji", 10), r, c, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
                     }
-                    else if (isStatus)
+                    else if (st)
                     {
-                        string statusValor = e.FormattedValue.ToString();
-                        bool ativo = statusValor == "Ativo";
-                        Color corFundo = ativo ? CorAtivoFundo : CorInativoFundo;
-                        Color corTexto = ativo ? CorAtivoTexto : CorInativoTexto;
-
-                        Rectangle rect = new Rectangle(e.CellBounds.X + 15, e.CellBounds.Y + 12, e.CellBounds.Width - 30, e.CellBounds.Height - 24);
-                        GraphicsPath path = new GraphicsPath();
-
-                        // CORREÇÃO DO ERRO DA VARIÁVEL RADIUS:
-                        // Declaramos a variável ANTES de usá-la no path.AddArc
-                        int radius = rect.Height;
-
-                        path.AddArc(rect.X, rect.Y, radius, radius, 90, 180);
-                        path.AddArc(rect.Right - radius, rect.Y, radius, radius, 270, 180);
-                        path.CloseFigure();
-
-                        using (Brush b = new SolidBrush(corFundo)) e.Graphics.FillPath(b, path);
-                        TextRenderer.DrawText(e.Graphics, statusValor.ToUpper(), new Font("Segoe UI", 9, FontStyle.Bold), rect, corTexto, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                        bool at = e.FormattedValue.ToString() == "Ativo";
+                        var bg = at ? ColorTranslator.FromHtml("#d1e7dd") : ColorTranslator.FromHtml("#f8d7da");
+                        var fg = at ? ColorTranslator.FromHtml("#0f5132") : ColorTranslator.FromHtml("#842029");
+                        var r = new Rectangle(e.CellBounds.X + 15, e.CellBounds.Y + 10, e.CellBounds.Width - 30, e.CellBounds.Height - 20);
+                        var p = new GraphicsPath(); p.AddArc(r.X, r.Y, r.Height, r.Height, 90, 180); p.AddArc(r.Right - r.Height, r.Y, r.Height, r.Height, 270, 180); p.CloseFigure();
+                        using (var b = new SolidBrush(bg)) e.Graphics.FillPath(b, p);
+                        TextRenderer.DrawText(e.Graphics, e.FormattedValue.ToString().ToUpper(), new Font("Segoe UI", 9, FontStyle.Bold), r, fg, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
                     }
                     e.Handled = true;
                 }
             };
-
-            _grid.CellFormatting += (s, e) => {
-                if (e.Value != null && _grid.Columns[e.ColumnIndex].DataPropertyName == "CpfAtleta")
-                {
-                    string val = Regex.Replace(e.Value.ToString(), "[^0-9]", "");
-                    if (val.Length == 11) { e.Value = Convert.ToUInt64(val).ToString(@"000\.000\.000\-00"); e.FormattingApplied = true; }
-                }
-            };
-
-            _grid.CellContentClick += (s, e) => {
-                if (e.RowIndex < 0) return;
-                var idVal = _grid.Rows[e.RowIndex].Cells["id_entidade"].Value;
-                if (idVal == null) return;
-                int id = Convert.ToInt32(idVal);
-
-                if (_grid.Columns[e.ColumnIndex].HeaderText == "Status") ProcessarTrocaStatus(id, _grid.Rows[e.RowIndex].Cells[e.ColumnIndex].Value.ToString());
-                else if (_grid.Columns[e.ColumnIndex].HeaderText == "Editar") EditarAluno?.Invoke(this, id);
-                else if (_grid.Columns[e.ColumnIndex].HeaderText == "Excluir") ConfirmarExclusao(id);
-            };
+            g.CellFormatting += (s, e) => { if (e.Value != null && g.Columns[e.ColumnIndex].DataPropertyName == "CpfAtleta") { string v = Regex.Replace(e.Value.ToString(), "[^0-9]", ""); if (v.Length == 11) { e.Value = Convert.ToUInt64(v).ToString(@"000\.000\.000\-00"); e.FormattingApplied = true; } } };
+            g.CellContentClick += (s, e) => { if (e.RowIndex < 0) return; var v = g.Rows[e.RowIndex].Cells["id_entidade"].Value; if (v == null) return; int id = Convert.ToInt32(v); if (g.Columns[e.ColumnIndex].HeaderText == "Status") ToggleStatus(id, g.Rows[e.RowIndex].Cells[e.ColumnIndex].Value.ToString()); else if (g.Columns[e.ColumnIndex].HeaderText == "Editar") EditarAluno?.Invoke(this, id); else if (g.Columns[e.ColumnIndex].HeaderText == "Excluir") Del(id); };
         }
 
-        // ================= LÓGICA E FILTROS =================
-        private void LimparFiltros()
+        // Logic
+        private void LoadCats() { try { var c = new EntidadeRepository().ObterCategorias(); _cmbCat.Items.Clear(); _cmbCat.Items.Add("Todas Categorias"); foreach (var i in c) _cmbCat.Items.Add(i.GetType().GetProperty("Descricao").GetValue(i, null)); _cmbCat.SelectedIndex = 0; } catch { } }
+        private void LoadData() { try { var r = new EntidadeRepository(); _data = r.ObterTodos(); Filter(); } catch { } }
+        private void Filter() { if (_data == null) return; string t = _search.Text.ToLower().Contains("pesquisar") ? "" : _search.Text.ToLower(); string c = _cmbCat.SelectedItem?.ToString() ?? "Todas Categorias"; string s = _cmbStatus.SelectedItem?.ToString() ?? "Todos Status"; _grid.DataSource = _data.Where(x => (string.IsNullOrEmpty(t) || (x.Nome != null && x.Nome.ToLower().Contains(t)) || (x.CpfAtleta != null && x.CpfAtleta.Contains(t))) && (c == "Todas Categorias" || (x.CategoriaDescricao != null && x.CategoriaDescricao == c)) && (s == "Todos Status" || (s == "Ativos" && x.Status == "Ativo") || (s == "Inativos" && x.Status == "Inativo"))).ToList(); }
+
+        private void ToggleStatus(int id, string s)
         {
-            txtBusca.Text = "Pesquisar por Nome ou CPF..."; txtBusca.ForeColor = Color.Gray;
-            if (cmbFiltroCategoria.Items.Count > 0) cmbFiltroCategoria.SelectedIndex = 0;
-            if (cmbFiltroStatus.Items.Count > 0) cmbFiltroStatus.SelectedIndex = 0;
-            AplicarFiltros();
+            if (!DarkBox.Confirmar($"Deseja realmente {(s == "Ativo" ? "INATIVAR" : "ATIVAR")} este aluno?", out bool _)) return;
+            try { new EntidadeRepository().AlternarStatus(id); LoadData(); } catch (Exception ex) { DarkBox.Mostrar("Erro: " + ex.Message); }
         }
-
-        private void AplicarFiltros()
-        {
-            if (_listaOriginal == null) return;
-            string termo = txtBusca.Text.ToLower().Contains("pesquisar") ? "" : txtBusca.Text.ToLower();
-            string cat = cmbFiltroCategoria.SelectedItem?.ToString() ?? "Todas Categorias";
-            string st = cmbFiltroStatus.SelectedItem?.ToString() ?? "Todos Status";
-
-            var lista = _listaOriginal.Where(aluno =>
-                (string.IsNullOrEmpty(termo) || (aluno.Nome != null && aluno.Nome.ToLower().Contains(termo)) || (aluno.CpfAtleta != null && aluno.CpfAtleta.Contains(termo))) &&
-                (cat == "Todas Categorias" || (aluno.CategoriaDescricao != null && aluno.CategoriaDescricao == cat)) &&
-                (st == "Todos Status" || (st == "Ativos" && aluno.Status == "Ativo") || (st == "Inativos" && aluno.Status == "Inativo"))
-            ).ToList();
-            _grid.DataSource = lista;
-        }
-
-        private void ProcessarTrocaStatus(int id, string statusAtual)
-        {
-            if (_confirmacaoDesativadaAte.HasValue && DateTime.Now > _confirmacaoDesativadaAte.Value) _confirmacaoDesativadaAte = null;
-            if (_confirmacaoDesativadaAte == null)
-            {
-                string novoStatus = statusAtual == "Ativo" ? "INATIVAR" : "ATIVAR";
-                if (!MostrarConfirmacaoVisual($"Deseja realmente {novoStatus} este aluno?", out bool naoPerguntarHoje)) return;
-                if (naoPerguntarHoje) _confirmacaoDesativadaAte = DateTime.Today.AddDays(1);
-            }
-            try { new EntidadeRepository().AlternarStatus(id); CarregarDadosNoGrid(); } catch (Exception ex) { MessageBox.Show("Erro: " + ex.Message); }
-        }
-
-        private void CarregarCategoriasFiltro() { try { var cats = new EntidadeRepository().ObterCategorias(); cmbFiltroCategoria.Items.Clear(); cmbFiltroCategoria.Items.Add("Todas Categorias"); foreach (var c in cats) cmbFiltroCategoria.Items.Add(c.GetType().GetProperty("Descricao").GetValue(c, null)); cmbFiltroCategoria.SelectedIndex = 0; } catch { } }
-        private void ConfirmarExclusao(int id) { if (MostrarConfirmacaoVisual("Tem certeza que deseja excluir este aluno?", out bool _)) ExcluirAluno?.Invoke(this, id); }
-        private DataGridViewTextBoxColumn AdicionarColuna(DataGridView grid, string prop, string titulo, int largura = 0) { DataGridViewTextBoxColumn col = new DataGridViewTextBoxColumn(); if (!string.IsNullOrEmpty(prop)) { col.DataPropertyName = prop; col.Name = prop; } col.HeaderText = titulo; if (largura > 0) { col.Width = largura; col.AutoSizeMode = DataGridViewAutoSizeColumnMode.None; } grid.Columns.Add(col); return col; }
-
-        private bool MostrarConfirmacaoVisual(string mensagem, out bool dontAskAgain)
-        {
-            dontAskAgain = false;
-            Form form = new Form { StartPosition = FormStartPosition.CenterParent, FormBorderStyle = FormBorderStyle.None, Size = new Size(450, 250), BackColor = CorSidebar, Padding = new Padding(20) };
-            form.Paint += (s, e) => ControlPaint.DrawBorder(e.Graphics, form.ClientRectangle, CorTexto, ButtonBorderStyle.Solid);
-            Label lblFechar = new Label { Text = "✕", AutoSize = true, ForeColor = Color.Gray, BackColor = Color.Transparent, Font = new Font("Segoe UI", 14), Cursor = Cursors.Hand, Location = new Point(form.Width - 35, 10) };
-            lblFechar.Click += (s, e) => form.DialogResult = DialogResult.Cancel;
-            form.Controls.Add(lblFechar);
-            TableLayoutPanel layout = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 3 };
-            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 50F)); layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F)); layout.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
-            Label lblMsg = new Label { Text = mensagem, ForeColor = CorTexto, Font = new Font("Segoe UI", 14), TextAlign = ContentAlignment.MiddleCenter, Dock = DockStyle.Fill };
-            CheckBox chk = new CheckBox { Text = "Não perguntar novamente hoje", ForeColor = ColorTranslator.FromHtml("#8b949e"), Font = new Font("Segoe UI", 10), AutoSize = true, Anchor = AnchorStyles.None };
-            Panel pnlBotoes = new Panel { Dock = DockStyle.Fill, Padding = new Padding(0, 20, 0, 0) };
-            Button btnNao = new Button { Cursor = Cursors.Hand, Size = new Size(150, 50), DialogResult = DialogResult.No, Dock = DockStyle.Left }; AplicarEstiloBotaoDialogo(btnNao, CorExcluir, Color.White, "CANCELAR");
-            Button btnSim = new Button { Cursor = Cursors.Hand, Size = new Size(150, 50), DialogResult = DialogResult.Yes, Dock = DockStyle.Right }; AplicarEstiloBotaoDialogo(btnSim, CorBotaoNovo, Color.White, "CONFIRMAR");
-            pnlBotoes.Controls.Add(btnNao); pnlBotoes.Controls.Add(btnSim); layout.Controls.Add(lblMsg, 0, 0); layout.Controls.Add(chk, 0, 1); layout.Controls.Add(pnlBotoes, 0, 2); form.Controls.Add(layout);
-            var result = form.ShowDialog(); dontAskAgain = chk.Checked; return result == DialogResult.Yes;
-        }
-        private void AplicarEstiloBotaoDialogo(Button btn, Color c, Color t, string txt) { btn.FlatStyle = FlatStyle.Flat; btn.FlatAppearance.BorderSize = 0; btn.BackColor = Color.Transparent; btn.ForeColor = t; btn.Text = ""; btn.Paint += (s, e) => { e.Graphics.SmoothingMode = SmoothingMode.AntiAlias; Rectangle r = new Rectangle(0, 0, btn.Width - 1, btn.Height - 1); using (Brush b = new SolidBrush(c)) e.Graphics.FillRectangle(b, r); using (Pen p = new Pen(Color.White, 1)) e.Graphics.DrawRectangle(p, r); TextRenderer.DrawText(e.Graphics, txt, new Font("Segoe UI", 11, FontStyle.Bold), r, t, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter); }; }
+        private void Del(int id) { if (DarkBox.Confirmar("Tem certeza que deseja excluir?", out bool _)) ExcluirAluno?.Invoke(this, id); }
     }
-
     public class DarkComboBox : ComboBox
     {
-        public Color ParentBackColor { get; set; } = ColorTranslator.FromHtml("#161b22");
-        public Color BorderColor { get; set; } = ColorTranslator.FromHtml("#30363d");
+        public Color ParentBackColor { get; set; } = TemaGlobal.CorSidebar;
+        public Color BorderColor { get; set; } = TemaGlobal.CorBorda;
         public DarkComboBox() { SetStyle(ControlStyles.UserPaint | ControlStyles.ResizeRedraw | ControlStyles.DoubleBuffer, true); DrawMode = DrawMode.OwnerDrawFixed; DropDownStyle = ComboBoxStyle.DropDownList; FlatStyle = FlatStyle.Flat; Font = new Font("Segoe UI", 11); ItemHeight = 26; IntegralHeight = false; }
-        protected override void OnPaint(PaintEventArgs e) { e.Graphics.SmoothingMode = SmoothingMode.AntiAlias; using (var b = new SolidBrush(ParentBackColor)) e.Graphics.FillRectangle(b, this.ClientRectangle); string t = this.SelectedItem != null ? this.SelectedItem.ToString() : this.Text; if (this.Items.Count > 0 && this.SelectedIndex == -1 && !string.IsNullOrEmpty(Text)) t = Text; TextRenderer.DrawText(e.Graphics, t, this.Font, new Point(0, 4), this.ForeColor, TextFormatFlags.Left); int x = this.Width - 15, y = (this.Height - 6) / 2; Point[] p = { new Point(x, y), new Point(x + 8, y), new Point(x + 4, y + 5) }; using (var b = new SolidBrush(Color.Gray)) e.Graphics.FillPolygon(b, p); }
-        protected override void OnDrawItem(DrawItemEventArgs e) { if (e.Index < 0) return; bool s = (e.State & DrawItemState.Selected) == DrawItemState.Selected; Color c = s ? BorderColor : ParentBackColor; using (var b = new SolidBrush(c)) e.Graphics.FillRectangle(b, e.Bounds); using (var b = new SolidBrush(this.ForeColor)) e.Graphics.DrawString(this.Items[e.Index].ToString(), this.Font, b, new Point(e.Bounds.X + 2, e.Bounds.Y + 4)); }
+        protected override void OnPaint(PaintEventArgs e) { e.Graphics.SmoothingMode = SmoothingMode.AntiAlias; using (var b = new SolidBrush(ParentBackColor)) e.Graphics.FillRectangle(b, ClientRectangle); string t = SelectedItem?.ToString() ?? Text; if (Items.Count > 0 && SelectedIndex == -1 && !string.IsNullOrEmpty(Text)) t = Text; var r = new Rectangle(3, 1, Width - 20, Height - 2); TextRenderer.DrawText(e.Graphics, t, Font, r, TemaGlobal.CorTexto, TextFormatFlags.VerticalCenter | TextFormatFlags.HorizontalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.SingleLine); int x = Width - 15, y = (Height - 6) / 2; Point[] p = { new Point(x, y), new Point(x + 8, y), new Point(x + 4, y + 5) }; using (var b = new SolidBrush(Color.Gray)) e.Graphics.FillPolygon(b, p); }
+        protected override void OnDrawItem(DrawItemEventArgs e) { if (e.Index < 0) return; var c = (e.State & DrawItemState.Selected) == DrawItemState.Selected ? BorderColor : ParentBackColor; using (var b = new SolidBrush(c)) e.Graphics.FillRectangle(b, e.Bounds); using (var b = new SolidBrush(TemaGlobal.CorTexto)) e.Graphics.DrawString(Items[e.Index].ToString(), Font, b, new Point(e.Bounds.X + 2, e.Bounds.Y + 4)); }
+    }
+
+    public static class DarkBox
+    {
+        public static void Mostrar(string msg, string title = "Aviso")
+        {
+            var f = BaseForm(msg, 350, 200); var b = Btn("OK", ColorTranslator.FromHtml("#238636"));
+            b.Location = new Point((f.Width - b.Width) / 2, f.Height - 70); b.Click += (s, e) => f.DialogResult = DialogResult.OK;
+            f.Controls.Add(b); f.ShowDialog();
+        }
+        public static bool Confirmar(string msg, out bool dontAsk)
+        {
+            dontAsk = false; var f = BaseForm(msg, 450, 250);
+            var tlp = new TableLayoutPanel { Dock = DockStyle.Bottom, Height = 120, RowCount = 2, BackColor = Color.Transparent };
+            tlp.RowStyles.Add(new RowStyle(SizeType.Percent, 40F)); tlp.RowStyles.Add(new RowStyle(SizeType.Percent, 60F));
+            var chk = new CheckBox { Text = "Não perguntar hoje", ForeColor = Color.Gray, Font = new Font("Segoe UI", 10), AutoSize = true, Anchor = AnchorStyles.None };
+            var pnl = new Panel { Dock = DockStyle.Fill, Padding = new Padding(20, 0, 20, 10) };
+            var bNo = Btn("CANCELAR", ColorTranslator.FromHtml("#ff7b72")); bNo.DialogResult = DialogResult.No; bNo.Dock = DockStyle.Left;
+            var bYes = Btn("CONFIRMAR", ColorTranslator.FromHtml("#238636")); bYes.DialogResult = DialogResult.Yes; bYes.Dock = DockStyle.Right;
+            pnl.Controls.Add(bNo); pnl.Controls.Add(bYes); tlp.Controls.Add(chk, 0, 0); tlp.Controls.Add(pnl, 0, 1);
+            f.Controls.Add(tlp); var res = f.ShowDialog(); dontAsk = chk.Checked; return res == DialogResult.Yes;
+        }
+        private static Form BaseForm(string msg, int w, int h) { var f = new Form { StartPosition = FormStartPosition.CenterParent, FormBorderStyle = FormBorderStyle.None, Size = new Size(w, h), BackColor = TemaGlobal.CorSidebar, Padding = new Padding(20) }; f.Paint += (s, e) => { using (var p = new Pen(TemaGlobal.CorBorda, 2)) e.Graphics.DrawRectangle(p, 0, 0, f.Width - 1, f.Height - 1); }; var x = new Label { Text = "✕", AutoSize = true, ForeColor = Color.Gray, Font = new Font("Segoe UI", 12), Cursor = Cursors.Hand, Location = new Point(f.Width - 30, 10) }; x.Click += (s, e) => f.DialogResult = DialogResult.Cancel; f.Controls.Add(x); f.Controls.Add(new Label { Text = msg, ForeColor = TemaGlobal.CorTexto, Font = new Font("Segoe UI", 13), TextAlign = ContentAlignment.MiddleCenter, Dock = DockStyle.Fill, Padding = new Padding(0, 20, 0, 50) }); return f; }
+        private static Button Btn(string txt, Color c) { var b = new Button { Size = new Size(150, 50), FlatStyle = FlatStyle.Flat, BackColor = Color.Transparent, ForeColor = Color.White, Text = "", Cursor = Cursors.Hand }; b.FlatAppearance.BorderSize = 0; b.Paint += (s, e) => { e.Graphics.SmoothingMode = SmoothingMode.AntiAlias; var r = new Rectangle(0, 0, b.Width - 1, b.Height - 1); using (var br = new SolidBrush(c)) e.Graphics.FillRectangle(br, r); TextRenderer.DrawText(e.Graphics, txt, new Font("Segoe UI", 11, FontStyle.Bold), r, Color.White, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter); }; return b; }
     }
 }

@@ -14,13 +14,15 @@ namespace SistemaFinanceiro.Models
         public DateTime? DataPagamento { get; set; }
         public int StatusId { get; set; } // 1=Pendente, 2=Pago, 3=Atrasado
 
-        // Propriedade para exibir no Grid (Texto bonitinho)
+        public string StatusAluno { get; set; }
+
         public string StatusDescricao
         {
             get
             {
                 if (StatusId == 2) return "Pago";
-                if (DataVencimento.Date < DateTime.Today) return "Atrasado";
+                // Lógica corrigida: Se for Pendente (1) e venceu antes de hoje, é Atrasado
+                if (StatusId == 1 && DataVencimento.Date < DateTime.Today) return "Atrasado";
                 return "Pendente";
             }
         }

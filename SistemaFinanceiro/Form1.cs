@@ -8,225 +8,276 @@ namespace SistemaFinanceiro
 {
     public partial class Form1 : Form
     {
-        // ================= CORES =================
-        private readonly Color CorFundo = ColorTranslator.FromHtml("#0d1117");
-        private readonly Color CorSidebar = ColorTranslator.FromHtml("#161b22");
-        private readonly Color CorTexto = ColorTranslator.FromHtml("#c9d1d9");
-        private readonly Color CorHover = ColorTranslator.FromHtml("#21262d");
-        private readonly Color CorSelecionado = ColorTranslator.FromHtml("#30363d"); // Cor do botão ativo
+        // Variáveis de estado e layout
+        private bool _menuLateralExpandido = true;
+        private const int LARGURA_MENU_EXPANDIDO = 250;
+        private const int LARGURA_MENU_RECOLHIDO = 70;
 
-        private bool sidebarExpandida = true;
-        private const int LarguraExpandida = 250;
-        private const int LarguraRecolhida = 70;
+        private TableLayoutPanel _layoutPrincipal;
+        private Panel _painelConteudo;
+        private Panel _painelLateral;
 
-        private TableLayoutPanel mainLayout;
-        private Panel contentPanel;
-        private Panel sidebar;
+        // Botões do Menu
+        private Button _btnMenuFinanceiro, _btnMenuLista, _btnMenuNovo, _btnConfig;
 
-        // Botões Globais para controle de cor
-        private Button btnFinan, btnLista, btnNovo;
+        // Referência para a tela ativa
+        private UserControl _telaAtual;
 
         public Form1()
         {
             InitializeComponent();
             ConfigurarJanelaPrincipal();
-
-            // Inicia na lista por padrão
-            NavegarParaLista();
+            AplicarTemaGlobal(); // //Aplica o tema inicial
+            NavegarParaListaDeAlunos(); // //Inicia na listagem
         }
 
+        // ================= GESTÃO DE TEMA =================
+        public void AplicarTemaGlobal()
+        {
+            // //Atualiza o Form Principal
+            this.BackColor = TemaGlobal.CorFundo;
+            this.ForeColor = TemaGlobal.CorTexto;
+
+            if (_painelLateral != null) _painelLateral.BackColor = TemaGlobal.CorSidebar;
+            if (_painelConteudo != null) _painelConteudo.BackColor = TemaGlobal.CorFundo;
+
+            // //Atualiza botões do menu
+            if (_painelLateral != null)
+            {
+                foreach (Control c in _painelLateral.Controls)
+                {
+                    if (c is Button btn)
+                    {
+                        btn.ForeColor = TemaGlobal.CorTexto;
+                        // //Se estiver selecionado, atualiza a cor de fundo
+                        if (btn.BackColor != Color.Transparent)
+                            btn.BackColor = TemaGlobal.CorBotaoAtivo;
+                    }
+                }
+            }
+
+            // //Propaga o tema para a tela que está aberta
+            if (_telaAtual != null)
+            {
+                if (_telaAtual is TelaListaAlunos l) l.AplicarTema();
+                else if (_telaAtual is TelaFinanceiro f) f.AplicarTema();
+                else if (_telaAtual is TelaCadastroAluno c) c.AplicarTema();
+                else if (_telaAtual is TelaConfiguracoes conf) conf.AplicarCoresAtuais();
+            }
+        }
+
+        // ================= CONFIGURAÇÃO VISUAL =================
         private void ConfigurarJanelaPrincipal()
         {
-            this.Text = "Sistema de Gestão";
+            this.Text = "Sistema de Gestão Integrada";
             this.Size = new Size(1280, 800);
-            this.MinimumSize = new Size(900, 600);
             this.StartPosition = FormStartPosition.CenterScreen;
-            this.BackColor = CorFundo;
-            this.ForeColor = CorTexto;
 
-            mainLayout = new TableLayoutPanel();
-            mainLayout.Dock = DockStyle.Fill;
-            mainLayout.ColumnCount = 2;
-            mainLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, LarguraExpandida));
-            mainLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            _layoutPrincipal = new TableLayoutPanel();
+            _layoutPrincipal.Dock = DockStyle.Fill;
+            _layoutPrincipal.ColumnCount = 2;
+            _layoutPrincipal.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, LARGURA_MENU_EXPANDIDO));
+            _layoutPrincipal.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
 
-            ConfigurarSidebar();
+            ConfigurarMenuLateral();
 
-            contentPanel = new Panel { Dock = DockStyle.Fill, BackColor = CorFundo };
+            _painelConteudo = new Panel { Dock = DockStyle.Fill };
 
-            mainLayout.Controls.Add(sidebar, 0, 0);
-            mainLayout.Controls.Add(contentPanel, 1, 0);
-            this.Controls.Add(mainLayout);
+            _layoutPrincipal.Controls.Add(_painelLateral, 0, 0);
+            _layoutPrincipal.Controls.Add(_painelConteudo, 1, 0);
+            this.Controls.Add(_layoutPrincipal);
         }
 
-        private void ConfigurarSidebar()
+        private void ConfigurarMenuLateral()
         {
-            sidebar = new Panel { Dock = DockStyle.Fill, BackColor = CorSidebar, Padding = new Padding(0) };
+            _painelLateral = new Panel { Dock = DockStyle.Fill, Padding = new Padding(0) };
 
-            Button btnMenu = new Button
+            Button btnAlternarMenu = new Button
             {
                 Text = "☰",
                 Dock = DockStyle.Top,
                 Height = 60,
                 FlatStyle = FlatStyle.Flat,
-                ForeColor = CorTexto,
                 Font = new Font("Segoe UI", 16),
                 Cursor = Cursors.Hand,
                 TextAlign = ContentAlignment.MiddleLeft,
-                Padding = new Padding(20, 0, 0, 0)
+                Padding = new Padding(20, 0, 0, 0),
+                FlatAppearance = { BorderSize = 0 }
             };
-            btnMenu.FlatAppearance.BorderSize = 0;
-            btnMenu.Click += (s, e) => AlternarSidebar();
+            btnAlternarMenu.Click += (s, e) => AlternarVisibilidadeMenu();
 
-            // Instancia os botões
-            btnFinan = CriarBotaoSidebar("Financeiro", "💲");
-            btnLista = CriarBotaoSidebar("Listar Alunos", "📄");
-            btnNovo = CriarBotaoSidebar("Novo Aluno", "➕");
+            _btnMenuFinanceiro = CriarBotaoNavegacao("Financeiro", "💲", DockStyle.Top);
+            _btnMenuLista = CriarBotaoNavegacao("Listar Alunos", "📄", DockStyle.Top);
+            _btnMenuNovo = CriarBotaoNavegacao("Novo Aluno", "➕", DockStyle.Top);
+            _btnConfig = CriarBotaoNavegacao("Configurações", "⚙️", DockStyle.Bottom); // //Fixo no rodapé
 
-            // Eventos de Navegação
-            btnLista.Click += (s, e) => NavegarParaLista();
-            btnNovo.Click += (s, e) => NavegarParaCadastro();
-            btnFinan.Click += (s, e) => NavegarParaFinanceiro(); // <--- AQUI ESTÁ A LIGAÇÃO
+            _btnMenuLista.Click += (s, e) => NavegarParaListaDeAlunos();
+            _btnMenuNovo.Click += (s, e) => NavegarParaCadastroAluno();
+            _btnMenuFinanceiro.Click += (s, e) => NavegarParaPainelFinanceiro();
+            _btnConfig.Click += (s, e) => NavegarParaConfiguracoes();
 
-            // Adiciona na ordem inversa (pois é Dock.Top)
-            sidebar.Controls.Add(btnFinan);
-            sidebar.Controls.Add(btnLista);
-            sidebar.Controls.Add(btnNovo);
-            sidebar.Controls.Add(btnMenu);
+            _painelLateral.Controls.Add(_btnConfig);
+            _painelLateral.Controls.Add(_btnMenuFinanceiro);
+            _painelLateral.Controls.Add(_btnMenuLista);
+            _painelLateral.Controls.Add(_btnMenuNovo);
+            _painelLateral.Controls.Add(btnAlternarMenu);
         }
 
-        // =================================================================================
-        //                              GERENCIADOR DE NAVEGAÇÃO
-        // =================================================================================
-
-        private void NavegarParaLista()
+        // ================= NAVEGAÇÃO =================
+        private void NavegarParaListaDeAlunos()
         {
-            AtualizarBotoesSidebar(btnLista); // Marca visualmente
-            contentPanel.Controls.Clear();
+            DestacarBotaoAtivo(_btnMenuLista);
+            _painelConteudo.Controls.Clear();
             var tela = new TelaListaAlunos();
-
-            tela.IrParaCadastro += (s, e) => NavegarParaCadastro();
-            tela.EditarAluno += (s, idAluno) => NavegarParaEdicao(idAluno);
-            tela.ExcluirAluno += (s, idAluno) => ProcessarExclusao(idAluno);
-
+            _telaAtual = tela;
+            tela.IrParaCadastro += (s, e) => NavegarParaCadastroAluno();
+            tela.EditarAluno += (s, id) => NavegarParaEdicaoAluno(id);
+            tela.ExcluirAluno += (s, id) => ExecutarExclusaoAluno(id);
             tela.Dock = DockStyle.Fill;
-            contentPanel.Controls.Add(tela);
+            _painelConteudo.Controls.Add(tela);
         }
 
-        private void NavegarParaCadastro()
+        private void NavegarParaCadastroAluno()
         {
-            AtualizarBotoesSidebar(btnNovo);
-            contentPanel.Controls.Clear();
+            DestacarBotaoAtivo(_btnMenuNovo);
+            _painelConteudo.Controls.Clear();
             var tela = new TelaCadastroAluno();
-            tela.VoltarParaLista += (s, e) => NavegarParaLista();
-
+            _telaAtual = tela;
+            tela.VoltarParaLista += (s, e) => NavegarParaListaDeAlunos();
             tela.Dock = DockStyle.Fill;
-            contentPanel.Controls.Add(tela);
+            _painelConteudo.Controls.Add(tela);
         }
 
-        // --- NOVA TELA FINANCEIRO ---
-        private void NavegarParaFinanceiro()
+        private void NavegarParaPainelFinanceiro()
         {
-            AtualizarBotoesSidebar(btnFinan);
-            contentPanel.Controls.Clear();
-            var tela = new TelaFinanceiro(); // Instancia a tela que criamos
-
+            DestacarBotaoAtivo(_btnMenuFinanceiro);
+            _painelConteudo.Controls.Clear();
+            var tela = new TelaFinanceiro();
+            _telaAtual = tela;
             tela.Dock = DockStyle.Fill;
-            contentPanel.Controls.Add(tela);
+            _painelConteudo.Controls.Add(tela);
         }
 
-        private void NavegarParaEdicao(int idAluno)
+        private void NavegarParaConfiguracoes()
         {
-            // Na edição, mantemos o botão "Lista" ou "Novo" aceso, ou nenhum
-            contentPanel.Controls.Clear();
-            var telaEdicao = new TelaCadastroAluno(idAluno);
-            telaEdicao.VoltarParaLista += (s, e) => NavegarParaLista();
-
-            telaEdicao.Dock = DockStyle.Fill;
-            contentPanel.Controls.Add(telaEdicao);
+            DestacarBotaoAtivo(_btnConfig);
+            _painelConteudo.Controls.Clear();
+            var tela = new TelaConfiguracoes();
+            _telaAtual = tela;
+            // //Conecta o evento para mudar o tema em tempo real
+            tela.AoMudarTema += (s, modo) => AplicarTemaGlobal();
+            tela.Dock = DockStyle.Fill;
+            _painelConteudo.Controls.Add(tela);
         }
 
-        private void ProcessarExclusao(int idAluno)
+        private void NavegarParaEdicaoAluno(int id)
+        {
+            _painelConteudo.Controls.Clear();
+            var tela = new TelaCadastroAluno(id);
+            _telaAtual = tela;
+            tela.VoltarParaLista += (s, e) => NavegarParaListaDeAlunos();
+            tela.Dock = DockStyle.Fill;
+            _painelConteudo.Controls.Add(tela);
+        }
+
+        private void ExecutarExclusaoAluno(int id)
         {
             try
             {
-                var repo = new EntidadeRepository();
-                repo.Excluir(idAluno); // Certifique-se que esse método existe no Repo
-                MessageBox.Show("Aluno excluído com sucesso!", "Sucesso", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                NavegarParaLista();
+                new EntidadeRepository().Excluir(id);
+                MessageBox.Show("Registro excluído!", "Sucesso");
+                NavegarParaListaDeAlunos();
             }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Erro ao excluir: {ex.Message}", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
+            catch (Exception ex) { MessageBox.Show("Erro: " + ex.Message); }
         }
 
-        // =================================================================================
-        //                              LÓGICA VISUAL
-        // =================================================================================
-
-        private void AtualizarBotoesSidebar(Button botaoAtivo)
+        // ================= LÓGICA DE UI =================
+        private void DestacarBotaoAtivo(Button botaoSelecionado)
         {
-            // Reseta cores
-            btnFinan.BackColor = Color.Transparent;
-            btnLista.BackColor = Color.Transparent;
-            btnNovo.BackColor = Color.Transparent;
+            _btnMenuFinanceiro.BackColor = Color.Transparent;
+            _btnMenuLista.BackColor = Color.Transparent;
+            _btnMenuNovo.BackColor = Color.Transparent;
+            _btnConfig.BackColor = Color.Transparent;
 
-            // Marca o ativo
-            if (botaoAtivo != null)
-                botaoAtivo.BackColor = CorSelecionado;
+            if (botaoSelecionado != null)
+                botaoSelecionado.BackColor = TemaGlobal.CorBotaoAtivo;
         }
 
-        private void AlternarSidebar()
+        private void AlternarVisibilidadeMenu()
         {
-            sidebarExpandida = !sidebarExpandida;
-            mainLayout.ColumnStyles[0].Width = sidebarExpandida ? LarguraExpandida : LarguraRecolhida;
+            _menuLateralExpandido = !_menuLateralExpandido;
+            _layoutPrincipal.ColumnStyles[0].Width = _menuLateralExpandido ? LARGURA_MENU_EXPANDIDO : LARGURA_MENU_RECOLHIDO;
 
-            foreach (Control c in sidebar.Controls)
+            foreach (Control controle in _painelLateral.Controls)
             {
-                if (c is Button btn)
+                if (controle is Button btn)
                 {
                     if (btn.Text.Trim() == "☰")
                     {
-                        btn.TextAlign = sidebarExpandida ? ContentAlignment.MiddleLeft : ContentAlignment.MiddleCenter;
-                        btn.Padding = sidebarExpandida ? new Padding(20, 0, 0, 0) : new Padding(0);
+                        btn.TextAlign = _menuLateralExpandido ? ContentAlignment.MiddleLeft : ContentAlignment.MiddleCenter;
+                        btn.Padding = _menuLateralExpandido ? new Padding(20, 0, 0, 0) : new Padding(0);
                         continue;
                     }
-                    if (sidebarExpandida)
+
+                    // //Correção de segurança para string curta
+                    if (_menuLateralExpandido)
                     {
-                        if (btn.Tag != null) { string iconeAtual = btn.Text.Substring(0, 2).Trim(); btn.Text = $"{iconeAtual}   {btn.Tag.ToString()}"; }
-                        btn.TextAlign = ContentAlignment.MiddleLeft; btn.Padding = new Padding(20, 0, 0, 0); btn.Font = new Font("Segoe UI", 10);
+                        if (btn.Tag != null)
+                        {
+                            string icone = "";
+                            if (!string.IsNullOrEmpty(btn.Text) && btn.Text.Trim().Length > 0)
+                            {
+                                int len = Math.Min(2, btn.Text.Trim().Length);
+                                icone = btn.Text.Substring(0, len).Trim();
+                            }
+                            else icone = "•";
+
+                            btn.Text = $"{icone}   {btn.Tag.ToString()}";
+                        }
+                        btn.TextAlign = ContentAlignment.MiddleLeft;
+                        btn.Padding = new Padding(20, 0, 0, 0);
+                        btn.Font = new Font("Segoe UI", 10);
                     }
                     else
                     {
-                        if (btn.Tag == null) { string[] partes = btn.Text.Split(new string[] { "   " }, StringSplitOptions.None); if (partes.Length > 1) btn.Tag = partes[1]; }
-                        string textoAtual = btn.Text.Trim(); if (textoAtual.Length >= 2) btn.Text = textoAtual.Substring(0, 2).Trim();
-                        btn.TextAlign = ContentAlignment.MiddleCenter; btn.Padding = new Padding(0); btn.Font = new Font("Segoe UI", 14);
+                        if (btn.Tag == null)
+                        {
+                            string[] partes = btn.Text.Split(new string[] { "   " }, StringSplitOptions.None);
+                            if (partes.Length > 1) btn.Tag = partes[1];
+                            else btn.Tag = btn.Text;
+                        }
+
+                        string[] partesTexto = btn.Text.Split(new string[] { "   " }, StringSplitOptions.None);
+                        if (partesTexto.Length > 0) btn.Text = partesTexto[0].Trim();
+
+                        btn.TextAlign = ContentAlignment.MiddleCenter;
+                        btn.Padding = new Padding(0);
+                        btn.Font = new Font("Segoe UI", 14);
                     }
                 }
             }
         }
 
-        private Button CriarBotaoSidebar(string texto, string icone)
+        private Button CriarBotaoNavegacao(string texto, string icone, DockStyle dock)
         {
             Button btn = new Button
             {
                 Text = $"{icone}   {texto}",
                 Tag = texto,
-                Dock = DockStyle.Top,
+                Dock = dock,
                 Height = 50,
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.Transparent,
-                ForeColor = CorTexto,
+                ForeColor = TemaGlobal.CorTexto,
                 TextAlign = ContentAlignment.MiddleLeft,
                 Font = new Font("Segoe UI", 10),
                 Cursor = Cursors.Hand,
-                Padding = new Padding(20, 0, 0, 0)
+                Padding = new Padding(20, 0, 0, 0),
+                FlatAppearance = { BorderSize = 0 }
             };
-            btn.FlatAppearance.BorderSize = 0;
-            // Hover simples
-            btn.MouseEnter += (s, e) => { if (btn.BackColor != CorSelecionado) btn.BackColor = CorHover; };
-            btn.MouseLeave += (s, e) => { if (btn.BackColor != CorSelecionado) btn.BackColor = Color.Transparent; };
+
+            btn.MouseEnter += (s, e) => { if (btn.BackColor != TemaGlobal.CorBotaoAtivo) btn.BackColor = TemaGlobal.CorBotaoHover; };
+            btn.MouseLeave += (s, e) => { if (btn.BackColor != TemaGlobal.CorBotaoAtivo) btn.BackColor = Color.Transparent; };
             return btn;
         }
     }
