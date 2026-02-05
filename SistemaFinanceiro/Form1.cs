@@ -8,7 +8,6 @@ namespace SistemaFinanceiro
 {
     public partial class Form1 : Form
     {
-        // Variáveis de estado e layout
         private bool _menuLateralExpandido = true;
         private const int LARGURA_MENU_EXPANDIDO = 250;
         private const int LARGURA_MENU_RECOLHIDO = 70;
@@ -17,31 +16,25 @@ namespace SistemaFinanceiro
         private Panel _painelConteudo;
         private Panel _painelLateral;
 
-        // Botões do Menu
         private Button _btnMenuFinanceiro, _btnMenuLista, _btnMenuNovo, _btnConfig;
-
-        // Referência para a tela ativa
         private UserControl _telaAtual;
 
         public Form1()
         {
             InitializeComponent();
             ConfigurarJanelaPrincipal();
-            AplicarTemaGlobal(); // //Aplica o tema inicial
-            NavegarParaListaDeAlunos(); // //Inicia na listagem
+            AplicarTemaGlobal();
+            NavegarParaListaDeAlunos();
         }
 
-        // ================= GESTÃO DE TEMA =================
         public void AplicarTemaGlobal()
         {
-            // //Atualiza o Form Principal
             this.BackColor = TemaGlobal.CorFundo;
             this.ForeColor = TemaGlobal.CorTexto;
 
             if (_painelLateral != null) _painelLateral.BackColor = TemaGlobal.CorSidebar;
             if (_painelConteudo != null) _painelConteudo.BackColor = TemaGlobal.CorFundo;
 
-            // //Atualiza botões do menu
             if (_painelLateral != null)
             {
                 foreach (Control c in _painelLateral.Controls)
@@ -49,24 +42,13 @@ namespace SistemaFinanceiro
                     if (c is Button btn)
                     {
                         btn.ForeColor = TemaGlobal.CorTexto;
-                        // //Se estiver selecionado, atualiza a cor de fundo
                         if (btn.BackColor != Color.Transparent)
                             btn.BackColor = TemaGlobal.CorBotaoAtivo;
                     }
                 }
             }
-
-            // //Propaga o tema para a tela que está aberta
-            if (_telaAtual != null)
-            {
-                if (_telaAtual is TelaListaAlunos l) l.AplicarTema();
-                else if (_telaAtual is TelaFinanceiro f) f.AplicarTema();
-                else if (_telaAtual is TelaCadastroAluno c) c.AplicarTema();
-                else if (_telaAtual is TelaConfiguracoes conf) conf.AplicarCoresAtuais();
-            }
         }
 
-        // ================= CONFIGURAÇÃO VISUAL =================
         private void ConfigurarJanelaPrincipal()
         {
             this.Text = "Sistema de Gestão Integrada";
@@ -106,10 +88,11 @@ namespace SistemaFinanceiro
             };
             btnAlternarMenu.Click += (s, e) => AlternarVisibilidadeMenu();
 
+            _btnConfig = CriarBotaoNavegacao("Configurações", "⚙️", DockStyle.Bottom);
+
             _btnMenuFinanceiro = CriarBotaoNavegacao("Financeiro", "💲", DockStyle.Top);
             _btnMenuLista = CriarBotaoNavegacao("Listar Alunos", "📄", DockStyle.Top);
             _btnMenuNovo = CriarBotaoNavegacao("Novo Aluno", "➕", DockStyle.Top);
-            _btnConfig = CriarBotaoNavegacao("Configurações", "⚙️", DockStyle.Bottom); // //Fixo no rodapé
 
             _btnMenuLista.Click += (s, e) => NavegarParaListaDeAlunos();
             _btnMenuNovo.Click += (s, e) => NavegarParaCadastroAluno();
@@ -117,13 +100,15 @@ namespace SistemaFinanceiro
             _btnConfig.Click += (s, e) => NavegarParaConfiguracoes();
 
             _painelLateral.Controls.Add(_btnConfig);
+
+            // Adicionando em ordem inversa para Dock.Top
             _painelLateral.Controls.Add(_btnMenuFinanceiro);
             _painelLateral.Controls.Add(_btnMenuLista);
             _painelLateral.Controls.Add(_btnMenuNovo);
+
             _painelLateral.Controls.Add(btnAlternarMenu);
         }
 
-        // ================= NAVEGAÇÃO =================
         private void NavegarParaListaDeAlunos()
         {
             DestacarBotaoAtivo(_btnMenuLista);
@@ -132,7 +117,7 @@ namespace SistemaFinanceiro
             _telaAtual = tela;
             tela.IrParaCadastro += (s, e) => NavegarParaCadastroAluno();
             tela.EditarAluno += (s, id) => NavegarParaEdicaoAluno(id);
-            tela.ExcluirAluno += (s, id) => ExecutarExclusaoAluno(id);
+            // Removida a ação de exclusão física, o controle agora é via Status na própria lista
             tela.Dock = DockStyle.Fill;
             _painelConteudo.Controls.Add(tela);
         }
@@ -164,7 +149,6 @@ namespace SistemaFinanceiro
             _painelConteudo.Controls.Clear();
             var tela = new TelaConfiguracoes();
             _telaAtual = tela;
-            // //Conecta o evento para mudar o tema em tempo real
             tela.AoMudarTema += (s, modo) => AplicarTemaGlobal();
             tela.Dock = DockStyle.Fill;
             _painelConteudo.Controls.Add(tela);
@@ -180,18 +164,6 @@ namespace SistemaFinanceiro
             _painelConteudo.Controls.Add(tela);
         }
 
-        private void ExecutarExclusaoAluno(int id)
-        {
-            try
-            {
-                new EntidadeRepository().Excluir(id);
-                MessageBox.Show("Registro excluído!", "Sucesso");
-                NavegarParaListaDeAlunos();
-            }
-            catch (Exception ex) { MessageBox.Show("Erro: " + ex.Message); }
-        }
-
-        // ================= LÓGICA DE UI =================
         private void DestacarBotaoAtivo(Button botaoSelecionado)
         {
             _btnMenuFinanceiro.BackColor = Color.Transparent;
@@ -219,7 +191,6 @@ namespace SistemaFinanceiro
                         continue;
                     }
 
-                    // //Correção de segurança para string curta
                     if (_menuLateralExpandido)
                     {
                         if (btn.Tag != null)

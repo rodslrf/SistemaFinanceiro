@@ -11,39 +11,59 @@ namespace SistemaFinanceiro.Views
 {
     public partial class TelaCadastroAluno : UserControl
     {
-        private Color CorFundo;
-        private Color CorSidebar;
-        private Color CorTexto;
-        private Color CorLabel;
-        private Color CorBorda;
-        private Color CorSalvar;
-        private Color CorSalvarSuave;
-        private Color CorCancelar;
-        private Color CorCancelarSuave;
-
+        private Color corFundo, corCardFundo, corInputFundo, corTexto, corRotulo, corBorda, corDestaque, corSalvar, corSalvarSuave, corCancelar, corCancelarSuave;
         public event EventHandler VoltarParaLista;
+        private int? idEdicao = null;
 
-        private int? _idEdicao = null;
-        private TextBox txtNome, txtEmail, txtValorMensalidade, txtDiaVencimento;
-        private MaskedTextBox mskCpf, mskCpfPais, txtTelefone;
-        private DateTimePicker dtpDataNasc;
-        private ComboBox cmbCategoria;
-        private Label lblTitulo;
+        private TextBox campoNome, campoEmail1, campoEmail2, campoValorMensalidade, campoDiaVencimento, campoObservacao;
+        private MaskedTextBox campoCpfAluno, campoTelefoneAluno, campoCpfPais1, campoTelefonePais1, campoCpfPais2, campoTelefonePais2;
+        private DateTimePicker seletorDataNasc;
+        private ComboBox comboCategoria, comboTecnico, comboBolsista;
+        private Button botaoAdicionarTecnico;
+        private Label labelTitulo;
+        private FlowLayoutPanel painelRolagem;
+
+        // Variáveis do Aviso
+        private Panel _pnlAvisoFinanceiro;
+        private Panel _cardFinanceiroPanel;
+        private Label _lblAvisoTexto;
+        private string _valorOriginal = "";
+        private string _diaOriginal = "";
+        private bool _carregandoDados = false;
 
         public TelaCadastroAluno()
         {
             InitializeComponent();
             this.Dock = DockStyle.Fill;
+            this.SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint, true);
+            this.UpdateStyles();
 
             AplicarTema();
 
-            if (!this.DesignMode) { ConfigurarLayout(); CarregarCategorias(); }
+            if (!this.DesignMode)
+            {
+                ConfigurarLayout();
+                CarregarListas();
+
+                if (idEdicao == null)
+                    ConfigurarMascarasPadrao();
+            }
         }
 
         public TelaCadastroAluno(int id) : this()
         {
-            _idEdicao = id;
+            idEdicao = id;
             this.Load += (s, e) => CarregarDados(id);
+        }
+
+        private void ConfigurarMascarasPadrao()
+        {
+            campoCpfAluno.Mask = @"000\.000\.000-00";
+            campoCpfPais1.Mask = @"000\.000\.000-00";
+            campoCpfPais2.Mask = @"000\.000\.000-00";
+            campoTelefoneAluno.Mask = "(00) 00000-0000";
+            campoTelefonePais1.Mask = "(00) 00000-0000";
+            campoTelefonePais2.Mask = "(00) 00000-0000";
         }
 
         public void AplicarTema()
@@ -52,313 +72,477 @@ namespace SistemaFinanceiro.Views
 
             if (modoEscuro)
             {
-                CorFundo = ColorTranslator.FromHtml("#0d1117");
-                CorSidebar = ColorTranslator.FromHtml("#161b22");
-                CorTexto = ColorTranslator.FromHtml("#c9d1d9");
-                CorLabel = Color.White;
-                CorBorda = ColorTranslator.FromHtml("#30363d");
-                CorSalvar = ColorTranslator.FromHtml("#238636");
-                CorSalvarSuave = Color.FromArgb(40, 35, 134, 54);
-                CorCancelar = ColorTranslator.FromHtml("#ff7b72");
-                CorCancelarSuave = Color.FromArgb(40, 255, 123, 114);
+                corFundo = ColorTranslator.FromHtml("#0d1117");
+                corCardFundo = ColorTranslator.FromHtml("#161b22");
+                corInputFundo = ColorTranslator.FromHtml("#21262d");
+                corTexto = ColorTranslator.FromHtml("#e6edf3");
+                corRotulo = ColorTranslator.FromHtml("#8b949e");
+                corBorda = ColorTranslator.FromHtml("#30363d");
+                corDestaque = ColorTranslator.FromHtml("#58a6ff");
+                corSalvar = ColorTranslator.FromHtml("#238636");
+                corSalvarSuave = Color.FromArgb(40, 35, 134, 54);
+                corCancelar = ColorTranslator.FromHtml("#ff7b72");
+                corCancelarSuave = Color.FromArgb(40, 255, 123, 114);
             }
             else
             {
-                // Paleta Modo Claro
-                CorFundo = Color.White;
-                CorSidebar = ColorTranslator.FromHtml("#f6f8fa");
-                CorTexto = ColorTranslator.FromHtml("#24292f");
-                CorLabel = Color.DimGray;
-                CorBorda = ColorTranslator.FromHtml("#d0d7de");
-                CorSalvar = ColorTranslator.FromHtml("#1f883d");
-                CorSalvarSuave = Color.FromArgb(40, 31, 136, 61);
-                CorCancelar = ColorTranslator.FromHtml("#cf222e");
-                CorCancelarSuave = Color.FromArgb(40, 207, 34, 46);
+                corFundo = ColorTranslator.FromHtml("#f6f8fa");
+                corCardFundo = Color.White;
+                corInputFundo = Color.White;
+                corTexto = ColorTranslator.FromHtml("#24292f");
+                corRotulo = Color.DimGray;
+                corBorda = ColorTranslator.FromHtml("#d0d7de");
+                corDestaque = ColorTranslator.FromHtml("#0969da");
+                corSalvar = ColorTranslator.FromHtml("#1f883d");
+                corSalvarSuave = Color.FromArgb(40, 31, 136, 61);
+                corCancelar = ColorTranslator.FromHtml("#cf222e");
+                corCancelarSuave = Color.FromArgb(40, 207, 34, 46);
             }
 
-            // Aplica as cores ao Container Principal
-            this.BackColor = CorFundo;
-
-            // Atualiza os controles já criados
+            this.BackColor = corFundo;
             if (this.Controls.Count > 0)
-            {
                 AtualizarCoresRecursivo(this);
-                this.Invalidate(true);
-            }
         }
 
         private void AtualizarCoresRecursivo(Control parent)
         {
             foreach (Control c in parent.Controls)
             {
-                if (c is TextBox || c is MaskedTextBox)
+                if (c is TextBox || c is MaskedTextBox || c is ComboBox)
                 {
-                    c.BackColor = CorSidebar;
-                    c.ForeColor = CorTexto;
-                }
-                else if (c is ComboBox)
-                {
-                    c.BackColor = CorSidebar;
-                    c.ForeColor = CorTexto;
+                    c.BackColor = corInputFundo;
+                    c.ForeColor = corTexto;
                 }
                 else if (c is DateTimePicker dtp)
                 {
-                    dtp.CalendarForeColor = CorTexto;
-                    dtp.CalendarMonthBackground = CorSidebar;
+                    dtp.CalendarForeColor = corTexto;
+                    dtp.CalendarMonthBackground = corInputFundo;
                 }
-                else if (c is Label lbl)
+                else if (c is Panel && c.Tag?.ToString() == "WRAPPER")
                 {
-                    // Diferencia o Título dos labels comuns
-                    if (lbl == lblTitulo) lbl.ForeColor = CorTexto;
-                    else lbl.ForeColor = CorLabel;
-                }
-                // Se for os Paineis "Wrapper", atualiza a cor
-                else if (c is Panel && c.Tag != null && c.Tag.ToString() == "WRAPPER")
-                {
-                    c.BackColor = CorSidebar;
+                    c.BackColor = corInputFundo;
                     c.Invalidate();
                 }
 
-                if (c.HasChildren) AtualizarCoresRecursivo(c);
+                if (c.HasChildren)
+                    AtualizarCoresRecursivo(c);
             }
         }
 
         private void ConfigurarLayout()
         {
             this.Controls.Clear();
-            Panel mainPanel = new Panel { AutoSize = true, Anchor = AnchorStyles.None, BackColor = Color.Transparent };
+            this.SuspendLayout();
 
-            // Header
-            Panel pnlHeader = new Panel { Dock = DockStyle.Top, Height = 80 };
-            lblTitulo = new Label { Text = "Novo Cadastro", Font = new Font("Segoe UI", 24, FontStyle.Bold), ForeColor = CorTexto, AutoSize = false, TextAlign = ContentAlignment.MiddleCenter, Dock = DockStyle.Fill };
-            Label lblFechar = new Label { Text = "✕", AutoSize = true, ForeColor = Color.Gray, BackColor = Color.Transparent, Font = new Font("Segoe UI", 18, FontStyle.Regular), Cursor = Cursors.Hand, Location = new Point(pnlHeader.Width - 50, 10), Anchor = AnchorStyles.Top | AnchorStyles.Right };
-            lblFechar.MouseEnter += (s, e) => lblFechar.ForeColor = CorLabel;
-            lblFechar.MouseLeave += (s, e) => lblFechar.ForeColor = Color.Gray;
-            lblFechar.Click += (s, e) => VoltarParaLista?.Invoke(this, EventArgs.Empty);
-            pnlHeader.Controls.Add(lblFechar); pnlHeader.Controls.Add(lblTitulo); lblFechar.BringToFront();
+            Panel painelCabecalho = new Panel { Dock = DockStyle.Top, Height = 70, BackColor = corFundo, Padding = new Padding(20, 0, 20, 0) };
+            labelTitulo = new Label { Text = "Novo Cadastro", Font = new Font("Segoe UI", 24, FontStyle.Bold), ForeColor = corTexto, AutoSize = true, Location = new Point(20, 15) };
+            Label labelFechar = new Label { Text = "✕", AutoSize = true, ForeColor = Color.Gray, Font = new Font("Segoe UI", 16), Cursor = Cursors.Hand, Dock = DockStyle.Right, TextAlign = ContentAlignment.TopRight };
+            labelFechar.Click += (s, e) => VoltarParaLista?.Invoke(this, EventArgs.Empty);
+            painelCabecalho.Controls.Add(labelTitulo);
+            painelCabecalho.Controls.Add(labelFechar);
 
-            // Grid
-            TableLayoutPanel formGrid = new TableLayoutPanel();
-            formGrid.AutoSize = true; formGrid.BackColor = Color.Transparent;
-            formGrid.Padding = new Padding(0, 10, 0, 20);
-            formGrid.ColumnCount = 2;
-            formGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
-            formGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
-            formGrid.Dock = DockStyle.Top;
+            // --- 2. RODAPÉ (BOTÕES AJUSTADOS) ---
+            Panel painelBotoes = new Panel
+            {
+                Dock = DockStyle.Bottom,
+                Height = 80,
+                BackColor = corFundo,
+                // Padding ajustado para dar espaço nas laterais, mas deixamos o topo/base livres para o Flow controlar
+                Padding = new Padding(0, 0, 30, 0)
+            };
 
-            // Campos
-            txtTelefone = CriarInputMask("(00) 00000-0000");
-            mskCpf = CriarInputMask(@"000\.000\.000-00");
-            mskCpfPais = CriarInputMask(@"000\.000\.000-00");
+            FlowLayoutPanel flowBotoes = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Right,
+                AutoSize = true,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                // AQUI ESTÁ O AJUSTE: 20px de margem superior empurra os botões para baixo
+                Padding = new Padding(0, 20, 0, 0)
+            };
 
-            txtValorMensalidade = CriarInputTexto();
-            txtValorMensalidade.Text = "0,00";
-            txtValorMensalidade.TextAlign = HorizontalAlignment.Right;
-            txtValorMensalidade.TextChanged += TxtValor_TextChanged;
-            txtValorMensalidade.KeyPress += TxtValor_KeyPress; // Bloqueia letras
-            txtValorMensalidade.ShortcutsEnabled = false;
-            txtValorMensalidade.Enter += (s, e) => this.BeginInvoke((MethodInvoker)(() => txtValorMensalidade.Select(txtValorMensalidade.Text.Length, 0)));
-
-            txtDiaVencimento = CriarInputTexto();
-            txtDiaVencimento.MaxLength = 2;
-            txtDiaVencimento.Text = "10";
-            txtDiaVencimento.TextAlign = HorizontalAlignment.Center;
-            txtDiaVencimento.KeyPress += TxtNumerico_KeyPress;
-            txtDiaVencimento.Validating += TxtDia_Validating;
-
-            // Grid
-            AdicionarCampo(formGrid, "Nome Completo", txtNome = CriarInputTexto(), 0, 2);
-            AdicionarCampo(formGrid, "CPF do Aluno", mskCpf, 1, 1, 0);
-            AdicionarCampo(formGrid, "CPF do Responsável", mskCpfPais, 1, 1, 1);
-            AdicionarCampo(formGrid, "E-mail dos Pais", txtEmail = CriarInputTexto(), 2, 1, 0);
-            AdicionarCampo(formGrid, "Telefone dos Pais", txtTelefone, 2, 1, 1);
-
-            dtpDataNasc = new DateTimePicker { Format = DateTimePickerFormat.Short, Dock = DockStyle.Fill, Height = 38, Font = new Font("Segoe UI", 12), CalendarMonthBackground = CorSidebar, CalendarForeColor = CorTexto };
-            AdicionarCampoCustom(formGrid, "Data de Nascimento", dtpDataNasc, 3, 0);
-
-            cmbCategoria = new ComboBox { Dock = DockStyle.Fill, Height = 38, Font = new Font("Segoe UI", 12), DropDownStyle = ComboBoxStyle.DropDownList, BackColor = CorSidebar, ForeColor = CorTexto, FlatStyle = FlatStyle.Flat };
-            AdicionarCampoCustom(formGrid, "Categoria", cmbCategoria, 3, 1);
-
-            AdicionarCampo(formGrid, "Valor Mensalidade (R$)", txtValorMensalidade, 4, 1, 0);
-            AdicionarCampo(formGrid, "Dia Vencimento", txtDiaVencimento, 4, 1, 1);
-
-            // Botões
-            Panel pnlBotoes = new Panel { Dock = DockStyle.Top, Height = 100, Padding = new Padding(0, 40, 0, 0) };
-            Button btnCancelar = new Button { Cursor = Cursors.Hand, Width = 280, Height = 50, Dock = DockStyle.Left };
-            ConfigurarBotao(btnCancelar, () => CorCancelar, () => CorCancelarSuave, "✕", "CANCELAR");
+            Button btnCancelar = new Button { Text = "CANCELAR", Width = 150, Height = 50, Cursor = Cursors.Hand, Font = new Font("Segoe UI", 10, FontStyle.Bold), Margin = new Padding(0, 0, 5, 0) };
+            EstilizarBotao(btnCancelar, corCancelar, corCancelarSuave);
             btnCancelar.Click += (s, e) => VoltarParaLista?.Invoke(this, EventArgs.Empty);
 
-            Button btnSalvar = new Button { Cursor = Cursors.Hand, Width = 280, Height = 50, Dock = DockStyle.Right };
-            ConfigurarBotao(btnSalvar, () => CorSalvar, () => CorSalvarSuave, "✓", "SALVAR");
-            btnSalvar.Click += BtnSalvar_Click;
+            Button btnSalvar = new Button { Text = "SALVAR DADOS", Width = 150, Height = 50, Cursor = Cursors.Hand, Font = new Font("Segoe UI", 10, FontStyle.Bold), Margin = new Padding(0) };
+            EstilizarBotao(btnSalvar, corSalvar, corSalvarSuave);
+            btnSalvar.Click += EventoSalvar;
 
-            pnlBotoes.Controls.Add(btnCancelar); pnlBotoes.Controls.Add(btnSalvar);
-            mainPanel.Controls.Add(pnlBotoes); mainPanel.Controls.Add(formGrid); mainPanel.Controls.Add(pnlHeader);
-            this.Controls.Add(mainPanel);
+            flowBotoes.Controls.Add(btnCancelar);
+            flowBotoes.Controls.Add(btnSalvar);
+            painelBotoes.Controls.Add(flowBotoes);
 
-            this.Resize += (s, e) => {
-                int w = Math.Min(this.Width - 80, 1000);
-                mainPanel.Width = w > 650 ? w : 650;
-                mainPanel.Left = (this.Width - mainPanel.Width) / 2;
-                mainPanel.Top = (this.Height - mainPanel.Height) / 2;
+            painelRolagem = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoScroll = true, FlowDirection = FlowDirection.TopDown, WrapContents = false, Padding = new Padding(30, 10, 30, 40), BackColor = corFundo };
+            DarkBox.AplicarMarcaDagua(painelRolagem, Properties.Resources.diviminas);
+
+            InicializarCampos();
+
+            var cardAluno = CriarCard("DADOS DO ALUNO", 360);
+            AdicionarCampoGrid(cardAluno.Grid, "Nome Completo", campoNome, 0, 3);
+            AdicionarCampoGrid(cardAluno.Grid, "Data de Nascimento", seletorDataNasc, 1, 1, 0);
+            AdicionarCampoGrid(cardAluno.Grid, "CPF do Aluno", campoCpfAluno, 1, 1, 1);
+            AdicionarCampoGrid(cardAluno.Grid, "Telefone do Aluno", campoTelefoneAluno, 1, 1, 2);
+
+            var cardResp = CriarCard("CONTATO E RESPONSÁVEIS", 360);
+            AdicionarCampoGrid(cardResp.Grid, "CPF Responsável 1 *", campoCpfPais1, 0, 1, 0);
+            AdicionarCampoGrid(cardResp.Grid, "Telefone Resp. 1 *", campoTelefonePais1, 0, 1, 1);
+            AdicionarCampoGrid(cardResp.Grid, "E-mail Resp. 1", campoEmail1, 0, 1, 2);
+            AdicionarCampoGrid(cardResp.Grid, "CPF Responsável 2 (Opcional)", campoCpfPais2, 1, 1, 0);
+            AdicionarCampoGrid(cardResp.Grid, "Telefone Resp. 2 (Opcional)", campoTelefonePais2, 1, 1, 1);
+            AdicionarCampoGrid(cardResp.Grid, "E-mail Resp. 2 (Opcional)", campoEmail2, 1, 1, 2);
+
+            var cardFinTuple = CriarCard("MATRÍCULA E FINANCEIRO", 360);
+            _cardFinanceiroPanel = cardFinTuple.Panel;
+
+            Panel pnlTecnico = new Panel { Dock = DockStyle.Fill, BackColor = Color.Transparent, Margin = new Padding(0) };
+            botaoAdicionarTecnico.Dock = DockStyle.Right;
+            botaoAdicionarTecnico.Width = 45;
+            Panel pnlComboWrapper = new Panel { Dock = DockStyle.Fill, Padding = new Padding(0, 0, 5, 0), BackColor = Color.Transparent };
+            comboTecnico.Dock = DockStyle.None;
+            pnlComboWrapper.Controls.Add(comboTecnico);
+            pnlTecnico.Controls.Add(pnlComboWrapper);
+            pnlTecnico.Controls.Add(botaoAdicionarTecnico);
+            pnlComboWrapper.Resize += (s, e) => {
+                comboTecnico.Width = pnlComboWrapper.Width - 5;
+                comboTecnico.Top = (pnlComboWrapper.Height - comboTecnico.Height) / 2;
             };
+
+            AdicionarCampoPersonalizado(cardFinTuple.Grid, "Técnico Responsável", pnlTecnico, 0, 0);
+            AdicionarCampoPersonalizado(cardFinTuple.Grid, "Categoria Esportiva", comboCategoria, 0, 1);
+            AdicionarCampoPersonalizado(cardFinTuple.Grid, "Tipo de Bolsa", comboBolsista, 0, 2);
+            AdicionarCampoGrid(cardFinTuple.Grid, "Dia Vencimento", campoDiaVencimento, 1, 1, 0);
+            AdicionarCampoGrid(cardFinTuple.Grid, "Valor Mensalidade (R$)", campoValorMensalidade, 1, 1, 1);
+
+            _pnlAvisoFinanceiro = AdicionarAvisoFinanceiro();
+            _pnlAvisoFinanceiro.Visible = false;
+            cardFinTuple.Grid.Controls.Add(_pnlAvisoFinanceiro, 0, 2);
+            cardFinTuple.Grid.SetColumnSpan(_pnlAvisoFinanceiro, 3);
+
+            var cardObs = CriarCard("OBSERVAÇÕES", 260);
+            AdicionarCampoGrid(cardObs.Grid, "Informações Adicionais", campoObservacao, 0, 3);
+
+            painelRolagem.Controls.Add(cardAluno.Panel);
+            painelRolagem.Controls.Add(cardResp.Panel);
+            painelRolagem.Controls.Add(_cardFinanceiroPanel);
+            painelRolagem.Controls.Add(cardObs.Panel);
+
+            this.Controls.Add(painelRolagem);
+            this.Controls.Add(painelCabecalho);
+            this.Controls.Add(painelBotoes);
+            painelRolagem.BringToFront();
+
+            this.SizeChanged += (s, e) => AjustarLarguraCards();
+            AjustarLarguraCards();
+            this.ResumeLayout(false);
+            this.PerformLayout();
         }
 
-        private void TxtValor_KeyPress(object sender, KeyPressEventArgs e)
+        private Panel AdicionarAvisoFinanceiro()
         {
-            if (!char.IsControl(e.KeyChar) && !char.IsDigit(e.KeyChar)) e.Handled = true;
+            Panel pnl = new Panel { Dock = DockStyle.Fill, Height = 40, Margin = new Padding(0, 5, 0, 0), Visible = false };
+
+            TableLayoutPanel grid = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 1,
+                BackColor = Color.Transparent
+            };
+            grid.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+
+            // Ícone
+            Label lblIcone = new Label
+            {
+                Text = "⚠️",
+                ForeColor = Color.Yellow,
+                Font = new Font("Segoe UI", 12),
+                AutoSize = true,
+                Margin = new Padding(0),
+                Anchor = AnchorStyles.Left,
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+
+            // Texto
+            _lblAvisoTexto = new Label
+            {
+                Text = "",
+                ForeColor = Color.Yellow,
+                Font = new Font("Segoe UI", 10, FontStyle.Bold),
+                AutoSize = true,
+                Margin = new Padding(5, 0, 0, 0),
+                Anchor = AnchorStyles.Left, 
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+
+            grid.Controls.Add(lblIcone, 0, 0);
+            grid.Controls.Add(_lblAvisoTexto, 1, 0);
+            pnl.Controls.Add(grid);
+
+            return pnl;
         }
 
-        private void TxtValor_TextChanged(object sender, EventArgs e)
+        private void VerificarAlteracaoFinanceira(object sender, EventArgs e)
         {
-            txtValorMensalidade.TextChanged -= TxtValor_TextChanged;
+            if (_carregandoDados || !idEdicao.HasValue) return;
+
+            string valAtual = campoValorMensalidade.Text.Trim();
+            string diaAtual = campoDiaVencimento.Text.Trim();
+
+            bool mudouValor = valAtual != _valorOriginal;
+            bool mudouDia = diaAtual != _diaOriginal;
+            bool houveAlgumaAlteracao = mudouValor || mudouDia;
+
+            if (mudouValor && mudouDia)
+                _lblAvisoTexto.Text = "A alteração na data e no valor de pagamento só será efetuada no próximo mês.";
+            else if (mudouDia)
+                _lblAvisoTexto.Text = "A alteração na data de pagamento só será efetuada no próximo mês.";
+            else if (mudouValor)
+                _lblAvisoTexto.Text = "A alteração no valor do pagamento só será efetuada no próximo mês.";
+
+            if (_pnlAvisoFinanceiro.Visible != houveAlgumaAlteracao)
+            {
+                _pnlAvisoFinanceiro.Visible = houveAlgumaAlteracao;
+                _cardFinanceiroPanel.Height = houveAlgumaAlteracao ? 420 : 360;
+            }
+        }
+
+        private void AjustarLarguraCards()
+        {
+            if (painelRolagem == null) return;
+            int larguraUtil = Math.Max(600, this.Width - 80);
+            foreach (Control c in painelRolagem.Controls)
+                if (c is Panel p) p.Width = larguraUtil;
+        }
+
+        private void InicializarCampos()
+        {
+            campoNome = CriarInputTexto();
+            campoCpfAluno = CriarInputMask();
+            campoTelefoneAluno = CriarInputMask();
+            campoTelefonePais1 = CriarInputMask();
+            campoCpfPais1 = CriarInputMask();
+            campoTelefonePais2 = CriarInputMask();
+            campoCpfPais2 = CriarInputMask();
+            campoEmail1 = CriarInputTexto();
+            campoEmail2 = CriarInputTexto();
+            campoObservacao = CriarInputTexto();
+            campoObservacao.Multiline = true;
+            campoObservacao.Height = 100;
+
+            seletorDataNasc = new DateTimePicker { Format = DateTimePickerFormat.Short, Font = new Font("Segoe UI", 11), Dock = DockStyle.Fill };
+
+            campoValorMensalidade = CriarInputTexto();
+            campoValorMensalidade.TextAlign = HorizontalAlignment.Right;
+            campoValorMensalidade.Text = "0,00";
+            campoValorMensalidade.TextChanged += EventoMudarValor;
+            campoValorMensalidade.Enter += (s, e) => campoValorMensalidade.SelectAll();
+
+            campoDiaVencimento = CriarInputTexto();
+            campoDiaVencimento.TextAlign = HorizontalAlignment.Center;
+            campoDiaVencimento.Text = "10";
+            campoDiaVencimento.MaxLength = 2;
+            campoDiaVencimento.KeyPress += (s, e) => { if (!char.IsControl(e.KeyChar) && !char.IsDigit(e.KeyChar)) e.Handled = true; };
+            campoDiaVencimento.Validating += (s, e) => {
+                if (int.TryParse(campoDiaVencimento.Text, out int d)) campoDiaVencimento.Text = Math.Clamp(d, 1, 30).ToString("D2");
+                else campoDiaVencimento.Text = "10";
+            };
+
+            campoValorMensalidade.TextChanged += VerificarAlteracaoFinanceira;
+            campoDiaVencimento.TextChanged += VerificarAlteracaoFinanceira;
+
+            comboCategoria = CriarCombo();
+            comboBolsista = CriarCombo();
+            comboTecnico = CriarCombo();
+
+            botaoAdicionarTecnico = new Button
+            {
+                Text = "⚙️",
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.Transparent,
+                ForeColor = corRotulo,
+                Font = new Font("Segoe UI Emoji", 14, FontStyle.Regular),
+                TextAlign = ContentAlignment.MiddleCenter,
+                Cursor = Cursors.Hand,
+                Dock = DockStyle.Right,
+                Width = 45
+            };
+
+            botaoAdicionarTecnico.FlatAppearance.BorderSize = 0;
+            botaoAdicionarTecnico.MouseEnter += (s, e) => botaoAdicionarTecnico.ForeColor = corDestaque;
+            botaoAdicionarTecnico.MouseLeave += (s, e) => botaoAdicionarTecnico.ForeColor = corRotulo;
+
+            botaoAdicionarTecnico.Click += EventoGerenciarTecnicos;
+        }
+
+        private (Panel Panel, TableLayoutPanel Grid) CriarCard(string titulo, int altura)
+        {
+            Panel card = new Panel { Height = altura, BackColor = corCardFundo, Margin = new Padding(0, 0, 0, 30), Padding = new Padding(25) };
+            card.Paint += (s, e) => ControlPaint.DrawBorder(e.Graphics, card.ClientRectangle, corBorda, ButtonBorderStyle.Solid);
+            Label lblTitulo = new Label { Text = titulo, Dock = DockStyle.Top, Font = new Font("Segoe UI", 11, FontStyle.Bold), ForeColor = corDestaque, Height = 35 };
+            Panel linha = new Panel { Dock = DockStyle.Top, Height = 1, BackColor = corBorda, Margin = new Padding(0, 0, 0, 20) };
+            TableLayoutPanel grid = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, Padding = new Padding(0, 20, 0, 0), BackColor = Color.Transparent };
+            grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33F));
+            grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33F));
+            grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33F));
+            card.Controls.Add(grid);
+            card.Controls.Add(linha);
+            card.Controls.Add(lblTitulo);
+            return (card, grid);
+        }
+
+        private void EventoSalvar(object sender, EventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(campoNome.Text)) { MessageBox.Show("Nome obrigatório!"); return; }
+            if (comboTecnico.SelectedValue == null) { MessageBox.Show("Selecione um técnico!"); return; }
+
+            decimal.TryParse(campoValorMensalidade.Text, out decimal valor);
+            int.TryParse(campoDiaVencimento.Text, out int dia);
+
+            var aluno = new Entidade
+            {
+                Id = idEdicao ?? 0,
+                Nome = campoNome.Text.Trim(),
+                CpfAtleta = LimparNumeros(campoCpfAluno.Text),
+                telefone_aluno = LimparNumeros(campoTelefoneAluno.Text),
+                DataNascimento = seletorDataNasc.Value,
+                EmailPais = campoEmail1.Text,
+                TelefonePais = LimparNumeros(campoTelefonePais1.Text),
+                CpfPais = LimparNumeros(campoCpfPais1.Text),
+                email_pais2 = campoEmail2.Text,
+                telefone_pais2 = LimparNumeros(campoTelefonePais2.Text),
+                cpf_pais2 = LimparNumeros(campoCpfPais2.Text),
+                observacao = campoObservacao.Text.Trim(),
+                Categoria_id = (int)(comboCategoria.SelectedValue ?? 1),
+                id_tecnico = (int)comboTecnico.SelectedValue,
+                bolsista_id = (int?)comboBolsista.SelectedValue,
+                ValorMensalidade = valor,
+                DiaVencimento = dia > 0 ? dia : 10,
+                Status = "Ativo",
+                TipoVinculo = "Aluno"
+            };
+
             try
             {
-                string originalText = txtValorMensalidade.Text;
-                string digitsOnly = Regex.Replace(originalText, "[^0-9]", "");
-                if (string.IsNullOrEmpty(digitsOnly)) digitsOnly = "0";
-                int cursorPositionFromEnd = originalText.Length - txtValorMensalidade.SelectionStart;
-                decimal valor = decimal.Parse(digitsOnly) / 100m;
-                txtValorMensalidade.Text = valor.ToString("N2");
-                int newCursorPosition = txtValorMensalidade.Text.Length - cursorPositionFromEnd;
-                if (newCursorPosition < 0) newCursorPosition = 0;
-                if (newCursorPosition > txtValorMensalidade.Text.Length) newCursorPosition = txtValorMensalidade.Text.Length;
-                txtValorMensalidade.SelectionStart = newCursorPosition;
+                var repo = new EntidadeRepository();
+                if (idEdicao.HasValue) repo.Atualizar(aluno); else repo.Inserir(aluno);
+                VoltarParaLista?.Invoke(this, EventArgs.Empty);
             }
-            catch { }
-            txtValorMensalidade.TextChanged += TxtValor_TextChanged;
-        }
-
-        private void TxtNumerico_KeyPress(object sender, KeyPressEventArgs e)
-        {
-            if (!char.IsControl(e.KeyChar) && !char.IsDigit(e.KeyChar)) e.Handled = true;
-        }
-
-        private void TxtDia_Validating(object sender, System.ComponentModel.CancelEventArgs e)
-        {
-            if (string.IsNullOrEmpty(txtDiaVencimento.Text)) return;
-            if (int.TryParse(txtDiaVencimento.Text, out int dia))
-            {
-                if (dia < 1) dia = 1; else if (dia > 30) dia = 30;
-                txtDiaVencimento.Text = dia.ToString("D2");
-            }
-            else txtDiaVencimento.Text = "10";
+            catch (Exception ex) { MessageBox.Show("Erro: " + ex.Message); }
         }
 
         private void CarregarDados(int id)
         {
-            try
+            _carregandoDados = true;
+
+            var aluno = new EntidadeRepository().ObterPorId(id);
+            if (aluno == null) return;
+
+            labelTitulo.Text = "Editar Aluno";
+            campoNome.Text = aluno.Nome;
+            PreencherMascara(campoCpfAluno, aluno.CpfAtleta, @"000\.000\.000-00");
+            string telA = LimparNumeros(aluno.telefone_aluno);
+            PreencherMascara(campoTelefoneAluno, telA, (telA.Length > 10) ? "(00) 00000-0000" : "(00) 0000-0000");
+            seletorDataNasc.Value = aluno.DataNascimento;
+            PreencherMascara(campoCpfPais1, aluno.CpfPais, @"000\.000\.000-00");
+            string telP1 = LimparNumeros(aluno.TelefonePais);
+            PreencherMascara(campoTelefonePais1, telP1, (telP1.Length > 10) ? "(00) 00000-0000" : "(00) 0000-0000");
+            campoEmail1.Text = aluno.EmailPais;
+            PreencherMascara(campoCpfPais2, aluno.cpf_pais2, @"000\.000\.000-00");
+            string telP2 = LimparNumeros(aluno.telefone_pais2);
+            PreencherMascara(campoTelefonePais2, telP2, (telP2.Length > 10) ? "(00) 00000-0000" : "(00) 0000-0000");
+            campoEmail2.Text = aluno.email_pais2 ?? "";
+            campoObservacao.Text = aluno.observacao;
+
+            campoValorMensalidade.Text = aluno.ValorMensalidade.ToString("N2");
+            campoDiaVencimento.Text = aluno.DiaVencimento.ToString("D2");
+
+            comboCategoria.SelectedValue = aluno.Categoria_id;
+            comboTecnico.SelectedValue = aluno.id_tecnico;
+            comboBolsista.SelectedValue = aluno.bolsista_id;
+
+            _valorOriginal = campoValorMensalidade.Text.Trim();
+            _diaOriginal = campoDiaVencimento.Text.Trim();
+
+            _carregandoDados = false;
+        }
+
+        private void PreencherMascara(MaskedTextBox msk, string valor, string mascara)
+        {
+            if (string.IsNullOrEmpty(valor)) { msk.Mask = mascara; msk.Text = ""; return; }
+            msk.TextMaskFormat = MaskFormat.ExcludePromptAndLiterals;
+            msk.Mask = ""; msk.Text = valor; msk.Mask = mascara;
+        }
+
+        private void CarregarListas()
+        {
+            comboCategoria.DataSource = new EntidadeRepository().ObterCategorias();
+            comboCategoria.DisplayMember = "Descricao"; comboCategoria.ValueMember = "Id";
+            comboTecnico.DataSource = new TecnicoRepository().ObterTodosAtivos();
+            comboTecnico.DisplayMember = "Nome"; comboTecnico.ValueMember = "Id";
+            comboBolsista.DataSource = new BolsistaRepository().ObterTodosAtivos();
+            comboBolsista.DisplayMember = "Descricao"; comboBolsista.ValueMember = "Id";
+            comboTecnico.SelectedIndex = comboBolsista.SelectedIndex = -1;
+        }
+
+        private void EventoGerenciarTecnicos(object s, EventArgs e)
+        {
+            using (var formGerenciar = new FormGerenciarTecnicos())
             {
-                var repo = new EntidadeRepository();
-                var aluno = repo.ObterPorId(id);
-                if (aluno != null)
-                {
-                    lblTitulo.Text = "Editar Aluno";
-                    txtNome.Text = aluno.Nome;
-                    txtEmail.Text = aluno.EmailPais;
-                    mskCpf.Text = ""; mskCpfPais.Text = ""; txtTelefone.Text = "";
-                    if (!string.IsNullOrEmpty(aluno.CpfAtleta)) mskCpf.Text = LimparNumeros(aluno.CpfAtleta);
-                    if (!string.IsNullOrEmpty(aluno.CpfPais)) mskCpfPais.Text = LimparNumeros(aluno.CpfPais);
-                    string tel = LimparNumeros(aluno.TelefonePais);
-                    if (!string.IsNullOrEmpty(tel)) { txtTelefone.Mask = (tel.Length > 10) ? "(00) 00000-0000" : "(00) 0000-0000"; txtTelefone.Text = tel; }
-                    dtpDataNasc.Value = aluno.DataNascimento;
-                    cmbCategoria.SelectedValue = aluno.Categoria_id;
-                    txtValorMensalidade.Text = aluno.ValorMensalidade.ToString("N2");
-                    txtDiaVencimento.Text = aluno.DiaVencimento.ToString("D2");
-                    this.BeginInvoke((MethodInvoker)delegate {
-                        mskCpf.SelectionStart = 0; mskCpf.SelectionLength = 0;
-                        mskCpfPais.SelectionStart = 0; mskCpfPais.SelectionLength = 0;
-                        txtTelefone.SelectionStart = 0; txtTelefone.SelectionLength = 0;
-                    });
-                }
+                formGerenciar.ShowDialog();
+
+                CarregarListas();
             }
-            catch (Exception ex) { MessageBox.Show("Erro ao carregar dados: " + ex.Message); }
         }
 
-        private void BtnSalvar_Click(object sender, EventArgs e)
+        private void EventoMudarValor(object s, EventArgs e)
         {
-            if (string.IsNullOrWhiteSpace(txtNome.Text)) { MessageBox.Show("Preencha o nome!"); return; }
-            decimal valorFinal = 0;
-            if (!decimal.TryParse(txtValorMensalidade.Text, out valorFinal)) valorFinal = 0;
-            int.TryParse(txtDiaVencimento.Text, out int diaVencimento);
-            if (diaVencimento < 1) diaVencimento = 1;
-            var aluno = new Entidade
-            {
-                Id = _idEdicao ?? 0,
-                Nome = txtNome.Text.Trim(),
-                CpfAtleta = LimparNumeros(mskCpf.Text),
-                CpfPais = LimparNumeros(mskCpfPais.Text),
-                EmailPais = txtEmail.Text,
-                TelefonePais = LimparNumeros(txtTelefone.Text),
-                TipoVinculo = "Aluno",
-                Status = "Ativo",
-                DataNascimento = dtpDataNasc.Value,
-                Categoria_id = cmbCategoria.SelectedValue != null ? (int)cmbCategoria.SelectedValue : 1,
-                ValorMensalidade = valorFinal,
-                DiaVencimento = diaVencimento
-            };
-            try
-            {
-                var repo = new EntidadeRepository();
-                if (_idEdicao.HasValue) { repo.Atualizar(aluno); MessageBox.Show("Atualizado!"); }
-                else { repo.Inserir(aluno); MessageBox.Show("Cadastrado!"); }
-                VoltarParaLista?.Invoke(this, EventArgs.Empty);
-            }
-            catch (Exception ex) { MessageBox.Show("Erro ao salvar: " + ex.Message); }
+            campoValorMensalidade.TextChanged -= EventoMudarValor;
+            string d = Regex.Replace(campoValorMensalidade.Text, "[^0-9]", "");
+            if (decimal.TryParse(d, out decimal v)) campoValorMensalidade.Text = (v / 100m).ToString("N2");
+            else campoValorMensalidade.Text = "0,00";
+            campoValorMensalidade.SelectionStart = campoValorMensalidade.Text.Length;
+            campoValorMensalidade.TextChanged += EventoMudarValor;
+            VerificarAlteracaoFinanceira(s, e);
         }
 
-        private string LimparNumeros(string texto) => string.IsNullOrEmpty(texto) ? "" : Regex.Replace(texto, "[^0-9]", "");
+        private string LimparNumeros(string t) => Regex.Replace(t ?? "", "[^0-9]", "");
+        private TextBox CriarInputTexto() => new TextBox { BorderStyle = BorderStyle.None, Font = new Font("Segoe UI", 12), BackColor = corInputFundo, ForeColor = corTexto };
+        private MaskedTextBox CriarInputMask() => new MaskedTextBox { BorderStyle = BorderStyle.None, Font = new Font("Segoe UI", 12), BackColor = corInputFundo, ForeColor = corTexto, ResetOnSpace = false };
+        private ComboBox CriarCombo() => new ComboBox { Dock = DockStyle.Fill, Font = new Font("Segoe UI", 12), DropDownStyle = ComboBoxStyle.DropDownList, FlatStyle = FlatStyle.Flat, BackColor = corInputFundo, ForeColor = corTexto };
 
-        private MaskedTextBox CriarInputMask(string m)
+        private void AdicionarCampoGrid(TableLayoutPanel grid, string t, Control c, int lin, int span = 1, int col = 0)
         {
-            return new MaskedTextBox
-            {
-                BorderStyle = BorderStyle.None,
-                Mask = m,
-                TextMaskFormat = MaskFormat.ExcludePromptAndLiterals,
-                CutCopyMaskFormat = MaskFormat.ExcludePromptAndLiterals,
-                ResetOnSpace = false
-            };
-        }
-        private TextBox CriarInputTexto() => new TextBox { BorderStyle = BorderStyle.None };
-
-        private void AdicionarCampo(TableLayoutPanel grid, string label, Control input, int row, int colspan = 1, int col = 0)
-        {
-            Panel container = new Panel { Dock = DockStyle.Fill, Margin = new Padding(0, 0, 20, 20), Height = 80 };
-            Label lbl = new Label { Text = label, Dock = DockStyle.Top, ForeColor = CorLabel, Font = new Font("Segoe UI", 10, FontStyle.Bold), Height = 25, TextAlign = ContentAlignment.BottomLeft };
-            Panel wrapper = new Panel { Dock = DockStyle.Bottom, Height = 45, BackColor = CorSidebar, Padding = new Padding(10, 5, 10, 5), Tag = "WRAPPER" }; // Tag para identificar na troca de tema
-            wrapper.Paint += (s, e) => ControlPaint.DrawBorder(e.Graphics, wrapper.ClientRectangle, CorBorda, ButtonBorderStyle.Solid);
-            input.BackColor = CorSidebar; input.ForeColor = CorTexto; input.Font = new Font("Segoe UI", 12F);
-            if (input is TextBox t) { t.BorderStyle = BorderStyle.None; t.Multiline = true; t.WordWrap = false; t.KeyDown += (s, e) => { if (e.KeyCode == Keys.Enter) e.SuppressKeyPress = true; }; }
-            if (input is MaskedTextBox m) { m.BorderStyle = BorderStyle.None; m.Click += (s, e) => { }; }
-            input.Dock = DockStyle.None; input.Anchor = AnchorStyles.Left | AnchorStyles.Right; input.Height = 30; input.Width = wrapper.Width - 25;
-            input.Location = new Point(10, (wrapper.Height - input.Height) / 2); wrapper.Resize += (s, e) => input.Width = wrapper.Width - 25;
-            wrapper.Controls.Add(input); container.Controls.Add(wrapper); container.Controls.Add(lbl);
-            grid.Controls.Add(container, col, row); if (colspan > 1) grid.SetColumnSpan(container, colspan);
+            int alturaPainel = (c is TextBox tb && tb.Multiline) ? 160 : 110;
+            Panel p = new Panel { Dock = DockStyle.Fill, Margin = new Padding(0, 0, 20, 15), Height = alturaPainel };
+            Label l = new Label { Text = t, Dock = DockStyle.Top, ForeColor = corRotulo, Font = new Font("Segoe UI", 9, FontStyle.Bold), Height = 30 };
+            int h = (c is TextBox tb2 && tb2.Multiline) ? 120 : 45;
+            Panel w = new Panel { Dock = DockStyle.Top, Height = h, Tag = "WRAPPER", BackColor = corInputFundo, Padding = new Padding(10, 0, 10, 0) };
+            w.Paint += (s, e) => ControlPaint.DrawBorder(e.Graphics, w.ClientRectangle, corBorda, ButtonBorderStyle.Solid);
+            if (!(c is TextBox tbm && tbm.Multiline)) { c.Dock = DockStyle.None; c.Anchor = AnchorStyles.Left | AnchorStyles.Right; c.Width = w.Width - 20; c.Location = new Point(10, (h - c.Height) / 2); }
+            else c.Dock = DockStyle.Fill;
+            w.Controls.Add(c); p.Controls.Add(w); p.Controls.Add(l);
+            grid.Controls.Add(p, col, lin); if (span > 1) grid.SetColumnSpan(p, span);
         }
 
-        private void AdicionarCampoCustom(TableLayoutPanel grid, string label, Control input, int row, int col)
+        private void AdicionarCampoPersonalizado(TableLayoutPanel grid, string t, Control c, int lin, int col)
         {
-            Panel container = new Panel { Dock = DockStyle.Fill, Margin = new Padding(0, 0, 20, 20), Height = 80 };
-            Label lbl = new Label { Text = label, Dock = DockStyle.Top, ForeColor = CorLabel, Font = new Font("Segoe UI", 10, FontStyle.Bold), Height = 25, TextAlign = ContentAlignment.BottomLeft };
-            Panel w = new Panel { Dock = DockStyle.Bottom, Height = 45, BackColor = CorSidebar, Tag = "WRAPPER" };
-            w.Paint += (s, e) => ControlPaint.DrawBorder(e.Graphics, w.ClientRectangle, CorBorda, ButtonBorderStyle.Solid);
-            input.Dock = DockStyle.None; input.Anchor = AnchorStyles.Left | AnchorStyles.Right; input.Width = w.Width - 10; input.Location = new Point(5, (w.Height - input.Height) / 2);
-            w.Controls.Add(input); container.Controls.Add(w); container.Controls.Add(lbl); grid.Controls.Add(container, col, row);
+            Panel p = new Panel { Dock = DockStyle.Fill, Margin = new Padding(0, 0, 20, 15), Height = 110 };
+            Label l = new Label { Text = t, Dock = DockStyle.Top, ForeColor = corRotulo, Font = new Font("Segoe UI", 9, FontStyle.Bold), Height = 30 };
+            Panel w = new Panel { Dock = DockStyle.Top, Height = 45, Tag = "WRAPPER", BackColor = corInputFundo, Padding = new Padding(1) };
+            w.Paint += (s, e) => ControlPaint.DrawBorder(e.Graphics, w.ClientRectangle, corBorda, ButtonBorderStyle.Solid);
+            if (c is Panel) c.Dock = DockStyle.Fill;
+            else if (c is ComboBox) { c.Dock = DockStyle.None; c.Anchor = AnchorStyles.Left | AnchorStyles.Right; c.Width = w.Width - 20; c.Location = new Point(10, (45 - c.Height) / 2); }
+            else c.Dock = DockStyle.Fill;
+            w.Controls.Add(c); p.Controls.Add(w); p.Controls.Add(l);
+            grid.Controls.Add(p, col, lin);
         }
 
-        private void ConfigurarBotao(Button btn, Func<Color> getCorSolida, Func<Color> getCorSuave, string icone, string texto)
+        private void EstilizarBotao(Button b, Color bg, Color hover)
         {
-            btn.FlatStyle = FlatStyle.Flat; btn.FlatAppearance.BorderSize = 0; btn.FlatAppearance.MouseDownBackColor = Color.Transparent; btn.FlatAppearance.MouseOverBackColor = Color.Transparent; btn.BackColor = Color.Transparent; btn.Text = "";
-            btn.Paint += (s, e) => {
-                Color cSolida = getCorSolida();
-                Color cSuave = getCorSuave();
-                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias; Rectangle rect = new Rectangle(0, 0, btn.Width - 1, btn.Height - 1);
-                using (Brush brushSuave = new SolidBrush(cSuave)) e.Graphics.FillRectangle(brushSuave, rect);
-                using (Pen pen = new Pen(cSolida, 1)) e.Graphics.DrawRectangle(pen, rect);
-                string textoCompleto = $"{icone}  {texto}"; TextRenderer.DrawText(e.Graphics, textoCompleto, new Font("Segoe UI", 11, FontStyle.Bold), rect, cSolida, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
-            };
+            b.FlatStyle = FlatStyle.Flat; b.FlatAppearance.BorderSize = 0; b.BackColor = bg; b.ForeColor = Color.White;
+            b.MouseEnter += (s, e) => b.BackColor = hover; b.MouseLeave += (s, e) => b.BackColor = bg;
         }
-        private void CarregarCategorias() { try { var r = new EntidadeRepository(); cmbCategoria.DataSource = r.ObterCategorias(); cmbCategoria.DisplayMember = "Descricao"; cmbCategoria.ValueMember = "Id"; } catch { } }
     }
 }

@@ -6,6 +6,7 @@ namespace SistemaFinanceiro.Models
     {
         public int IdCobranca { get; set; }
         public int AlunoId { get; set; }
+        public int? BolsistaId { get; set; }
         public string NomeAluno { get; set; }
         public string CpfAluno { get; set; }
         public string CategoriaDescricao { get; set; }

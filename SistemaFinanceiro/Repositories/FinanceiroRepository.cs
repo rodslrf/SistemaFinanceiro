@@ -27,7 +27,8 @@ namespace SistemaFinanceiro.Repositories
                         CASE WHEN c.status_id = 2 THEN c.updated_at ELSE NULL END AS DataPagamento,
                         e.nome AS NomeAluno,
                         e.cpf_atleta AS CpfAluno,
-                        e.status AS StatusAluno, -- BUSCANDO STATUS DO ALUNO
+                        e.bolsista_id,
+                        e.status AS StatusAluno,
                         ISNULL(cat.descricao, 'Sem Categoria') AS CategoriaDescricao
                     FROM Cobrancas c
                     INNER JOIN Entidades e ON c.entidade_id = e.id_entidade
@@ -44,6 +45,7 @@ namespace SistemaFinanceiro.Repositories
                         var cobranca = new Cobranca();
                         cobranca.IdCobranca = Convert.ToInt32(leitor["IdCobranca"]);
                         cobranca.AlunoId = Convert.ToInt32(leitor["AlunoId"]);
+                        cobranca.BolsistaId = Convert.ToInt32(leitor["bolsista_id"]);
                         cobranca.ValorBase = Convert.ToDecimal(leitor["ValorBase"]);
                         cobranca.DataVencimento = Convert.ToDateTime(leitor["DataVencimento"]);
 
@@ -55,7 +57,7 @@ namespace SistemaFinanceiro.Repositories
 
                         cobranca.NomeAluno = leitor["NomeAluno"].ToString();
                         cobranca.CpfAluno = leitor["CpfAluno"].ToString();
-                        cobranca.StatusAluno = leitor["StatusAluno"].ToString(); // PREENCHENDO A PROPRIEDADE
+                        cobranca.StatusAluno = leitor["StatusAluno"].ToString();
                         cobranca.CategoriaDescricao = leitor["CategoriaDescricao"].ToString();
 
                         listaCobrancas.Add(cobranca);

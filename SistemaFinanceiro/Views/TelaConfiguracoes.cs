@@ -74,7 +74,10 @@ namespace SistemaFinanceiro.Views
 
             this.Controls.Add(_cardTema);
             this.Controls.Add(_lblTitulo);
+
+            DarkBox.AplicarMarcaDagua(this, Properties.Resources.diviminas);
         }
+
     }
 
     public class ToggleSwitch : CheckBox
