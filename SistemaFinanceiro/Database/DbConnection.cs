@@ -1,16 +1,23 @@
-﻿using Microsoft.Data.SqlClient;
-
+﻿using MySqlConnector;
+using Microsoft.Extensions.Configuration;
+using System.IO;
+using System;
 
 namespace SistemaFinanceiro.Database
 {
     public static class DbConnection
     {
-        private static string 
-        connectionString = @"Server=ALFA14707;Database=sistemaFinanceiro;Trusted_Connection=True;Encrypt=False;TrustServerCertificate=True;";
-
-        public static SqlConnection GetConnection()
+        public static MySqlConnection GetConnection()
         {
-            return new SqlConnection(connectionString);
+            var builder = new ConfigurationBuilder()
+                .SetBasePath(AppDomain.CurrentDomain.BaseDirectory)
+                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
+
+            IConfigurationRoot configuration = builder.Build();
+
+            string connectionString = configuration.GetConnectionString("DefaultConnection");
+
+            return new MySqlConnection(connectionString);
         }
     }
 }

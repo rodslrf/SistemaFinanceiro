@@ -13,7 +13,7 @@ namespace SistemaFinanceiro.Views
     public class FormGerenciarTecnicos : Form
     {
         private TextBox _search;
-        private DarkComboBox _cmbStatus; // Componente visual customizado
+        private DarkComboBox _cmbStatus;
         private DataGridView _grid;
         private Button _btnNovo;
         private TecnicoRepository _repository;
@@ -30,7 +30,6 @@ namespace SistemaFinanceiro.Views
             this.FormBorderStyle = FormBorderStyle.FixedSingle;
             this.MaximizeBox = false;
 
-            // Otimização visual (Anti-flicker)
             this.SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint, true);
 
             SetupUI();
@@ -79,13 +78,19 @@ namespace SistemaFinanceiro.Views
 
         private void SetupUI()
         {
-            // --- 1. CABEÇALHO ---
             var h = new Panel { Dock = DockStyle.Top, Height = 80 };
-            var t = new Label { Text = "Técnicos Cadastrados", Font = new Font("Segoe UI", 22, FontStyle.Bold), AutoSize = true, Location = new Point(20, 15) };
 
-            _btnNovo = new Button
+            var t = new Label
             {
-                Text = "+  Novo Técnico",
+                Text = "Técnicos Cadastrados",
+                Font = new Font("Segoe UI", 22, FontStyle.Bold),
+                AutoSize = true,
+                Location = new Point(20, 15)
+            };
+
+            var btnNovo = new Button
+            {
+                Text = "+ Novo Técnico",
                 BackColor = ColorTranslator.FromHtml("#238636"),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
@@ -93,37 +98,37 @@ namespace SistemaFinanceiro.Views
                 Height = 40,
                 Width = 150,
                 Cursor = Cursors.Hand,
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                Location = new Point(this.ClientSize.Width - 190, 20)
+                Anchor = AnchorStyles.Top | AnchorStyles.Right
             };
-            _btnNovo.FlatAppearance.BorderSize = 0;
-            _btnNovo.Click += (s, e) => AbrirCadastro();
+
+            btnNovo.Location = new Point(800, 20);
+
+            btnNovo.FlatAppearance.BorderSize = 0;
+            btnNovo.Click += (s, e) => AbrirCadastro();
 
             h.Controls.Add(t);
-            h.Controls.Add(_btnNovo);
+            h.Controls.Add(btnNovo);
 
-            // --- 2. FILTROS ---
+            btnNovo.BringToFront();
+
+            h.Resize += (s, e) => { btnNovo.Left = h.Width - 170; };
+            btnNovo.Left = 950 - 170;
+
             var f = new Panel { Dock = DockStyle.Top, Height = 60, Padding = new Padding(30, 5, 30, 5) };
-
             var tl = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1 };
             tl.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 80F));
             tl.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20F));
 
             _search = Input("Pesquisar por Nome...");
             _search.TextChanged += (s, e) => Filter();
-            var wrapSearch = Wrap(_search);
 
-            // --- BOTÃO DE STATUS (Customizado) ---
             _cmbStatus = new DarkComboBox();
             _cmbStatus.Items.AddRange(new[] { "Todos Status", "Ativos", "Inativos" });
             _cmbStatus.SelectedIndex = 0;
             _cmbStatus.SelectedIndexChanged += (s, e) => Filter();
-            // -------------------------------------
 
-            var wrapCombo = Wrap(_cmbStatus);
-
-            tl.Controls.Add(wrapSearch, 0, 0);
-            tl.Controls.Add(wrapCombo, 1, 0);
+            tl.Controls.Add(Wrap(_search), 0, 0);
+            tl.Controls.Add(Wrap(_cmbStatus), 1, 0);
             f.Controls.Add(tl);
 
             // --- 3. GRID ---
@@ -259,12 +264,10 @@ namespace SistemaFinanceiro.Views
             _grid.ClearSelection();
         }
 
-        // --- ALTERAÇÃO AQUI: Usando DarkBox.Confirmar em vez de MessageBox.Show ---
         private void ToggleStatus(int id, string currentStatus)
         {
             string msg = currentStatus == "Ativo" ? "DESATIVAR" : "ATIVAR";
 
-            // Agora usamos a sua caixa de mensagem customizada
             if (DarkBox.Confirmar($"Deseja realmente {msg} este técnico?"))
             {
                 try
@@ -292,7 +295,6 @@ namespace SistemaFinanceiro.Views
 
             b.Paint += (s, e) =>
             {
-                // Desenha a borda para todo mundo, inclusive o DarkComboBox
                 ControlPaint.DrawBorder(e.Graphics, b.ClientRectangle, TemaGlobal.CorBorda, ButtonBorderStyle.Solid);
             };
 

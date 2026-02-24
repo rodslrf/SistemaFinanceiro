@@ -19,6 +19,10 @@ namespace SistemaFinanceiro.Views
         private DarkComboBox _cmbCat, _cmbStatus, _cmbBolsa, _cmbMes;
 
         private List<Cobranca> _dataRaw = new List<Cobranca>();
+
+        // NOVA LISTA: Vai guardar os IDs dos alunos que realmente têm bolsa
+        private List<int> _idsBolsistasReais = new List<int>();
+
         private FinanceiroRepository _repo = new FinanceiroRepository();
         private bool _sortAsc = true;
 
@@ -226,19 +230,42 @@ namespace SistemaFinanceiro.Views
         {
             try
             {
+                // 1. Carrega as cobranças do banco
                 _dataRaw = _repo.ObterTodasCobrancas();
 
-                int qtd = _dataRaw
-                    .GroupBy(x => x.AlunoId)
-                    .Select(g => g.First())
-                    .Count(x => x.BolsistaId.HasValue
-                             && x.BolsistaId.Value != 6
-                             && x.StatusAluno.Equals("Ativo", StringComparison.OrdinalIgnoreCase));
+                // 2. MAGIA: Carrega a lista de alunos para descobrir quem são os bolsistas DE VERDADE
+                // Isso usa a mesma lógica da tela de lista de alunos ("Sem Bolsa" vs Nome da Bolsa)
+                var repoEntidade = new EntidadeRepository();
+                var todosAlunos = repoEntidade.ObterTodos();
 
-                _lblTotalBolsistas.Text = $"🎓 Bolsistas: {qtd}";
+                _idsBolsistasReais.Clear();
+                foreach (var aluno in todosAlunos)
+                {
+                    // Usamos reflection pois ObterTodos retorna dynamic
+                    var propId = aluno.GetType().GetProperty("id_entidade");
+                    var propBolsa = aluno.GetType().GetProperty("BolsaDescricao");
 
+                    if (propId != null && propBolsa != null)
+                    {
+                        int id = (int)propId.GetValue(aluno, null);
+                        string bolsa = propBolsa.GetValue(aluno, null)?.ToString();
+
+                        // Se a descrição NÃO for "Sem Bolsa", guardamos o ID como bolsista
+                        if (bolsa != null && !bolsa.Equals("Sem Bolsa", StringComparison.OrdinalIgnoreCase))
+                        {
+                            _idsBolsistasReais.Add(id);
+                        }
+                    }
+                }
+
+                // 3. Atualiza o contador usando a contagem oficial do banco
+                int qtdBolsistas = repoEntidade.ContarBolsistasAtivos();
+                _lblTotalBolsistas.Text = $"🎓 Bolsistas: {qtdBolsistas}";
+
+                // 4. Aplica filtros
                 Filter();
 
+                // 5. Atualiza Cards
                 var t = _repo.ObterTotaisMes(DateTime.Now.ToString("MM/yyyy"));
                 _lblRec.Text = t.Recebido.ToString("C2");
                 _lblPend.Text = t.Pendente.ToString("C2");
@@ -300,6 +327,16 @@ namespace SistemaFinanceiro.Views
             _grid.DataSource = listaVisual;
         }
 
+        private bool IsBolsistaMatch(Cobranca x, string filtro)
+        {
+            // CORREÇÃO FINAL: Verifica se o ID do aluno está na lista de bolsistas reais
+            bool ehBolsista = _idsBolsistasReais.Contains(x.AlunoId);
+
+            if (filtro == "Somente Bolsistas") return ehBolsista;
+            if (filtro == "Não Bolsistas") return !ehBolsista;
+            return true;
+        }
+
         private void SetupGrid(DataGridView g)
         {
             g.Dock = DockStyle.Fill;
@@ -345,23 +382,15 @@ namespace SistemaFinanceiro.Views
                 }
             };
 
-            // --- CORREÇÃO: Desenho do Texto do Header em RowPostPaint ---
-            // Isso desenha sobre toda a linha, sem ser cortado pelas colunas
             g.RowPostPaint += (s, e) =>
             {
                 var item = g.Rows[e.RowIndex].DataBoundItem as Cobranca;
                 if (item != null && item.IdCobranca == -1)
                 {
-                    // Define o texto
                     string texto = item.NomeAluno;
                     var fonte = new Font("Segoe UI", 14, FontStyle.Bold);
                     var corTexto = Color.White;
-
-                    // Define a área de desenho (Toda a largura visível da grid)
-                    // Adiciona um padding left de 20px
                     var rectTexto = new Rectangle(e.RowBounds.Left + 20, e.RowBounds.Top, g.Width - 40, e.RowBounds.Height);
-
-                    // Desenha o texto
                     TextRenderer.DrawText(e.Graphics, texto, fonte, rectTexto, corTexto,
                         TextFormatFlags.VerticalCenter | TextFormatFlags.Left);
                 }
@@ -371,7 +400,6 @@ namespace SistemaFinanceiro.Views
         private void SetupCols(DataGridView g)
         {
             g.Columns.Clear();
-
             g.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "ID", DataPropertyName = "IdCobranca", Visible = false });
 
             var n = new DataGridViewTextBoxColumn
@@ -408,42 +436,30 @@ namespace SistemaFinanceiro.Views
             g.CellPainting += (s, e) =>
             {
                 if (e.RowIndex < 0 || e.RowIndex >= g.Rows.Count) return;
-
                 var i = g.Rows[e.RowIndex].DataBoundItem as Cobranca;
                 if (i == null) return;
 
-                // --- HEADER DO MÊS (APENAS FUNDO) ---
                 if (i.IdCobranca == -1)
                 {
-                    // 1. Limpa o fundo (cobre as linhas da grade)
                     using (var b = new SolidBrush(TemaGlobal.CorFundo)) e.Graphics.FillRectangle(b, e.CellBounds);
-
-                    // 2. Desenha a barra escura (Fundo do Header)
                     int gap = 20;
-                    // Note que usamos e.CellBounds, então cada célula desenha seu pedaço da barra escura
                     var rectBarra = new Rectangle(e.CellBounds.Left, e.CellBounds.Top + gap, e.CellBounds.Width, e.CellBounds.Height - gap);
                     using (var b = new SolidBrush(ColorTranslator.FromHtml("#161b22"))) e.Graphics.FillRectangle(b, rectBarra);
-
-                    // O TEXTO FOI REMOVIDO DAQUI E MOVIDO PARA RowPostPaint
-
                     e.Handled = true;
                     return;
                 }
 
-                // --- COLUNAS VISUAIS (STATUS E AÇÃO) ---
                 bool st = g.Columns[e.ColumnIndex].HeaderText == "Status";
                 bool ac = g.Columns[e.ColumnIndex].HeaderText == "Ação";
 
                 if (st || ac)
                 {
                     e.Graphics.SmoothingMode = SmoothingMode.None;
-
                     using (var b = new SolidBrush(TemaGlobal.CorFundo)) e.Graphics.FillRectangle(b, e.CellBounds);
                     using (var p = new Pen(TemaGlobal.CorBorda)) e.Graphics.DrawRectangle(p, e.CellBounds);
-
                     var r = new Rectangle(e.CellBounds.X + 10, e.CellBounds.Y + 10, e.CellBounds.Width - 20, e.CellBounds.Height - 20);
 
-                    if (st) // --- STATUS ---
+                    if (st)
                     {
                         string status = i.StatusDescricao;
                         bool atrasado = status != "Pago" && i.DataVencimento.Date < DateTime.Today;
@@ -451,30 +467,15 @@ namespace SistemaFinanceiro.Views
 
                         Color bg = Color.Gray, border = Color.Black, text = Color.White;
 
-                        if (status == "Pago")
-                        {
-                            bg = ColorTranslator.FromHtml("#d1e7dd");
-                            border = ColorTranslator.FromHtml("#0f5132");
-                            text = ColorTranslator.FromHtml("#0f5132");
-                        }
-                        else if (status == "ATRASADO")
-                        {
-                            bg = ColorTranslator.FromHtml("#f8d7da");
-                            border = ColorTranslator.FromHtml("#842029");
-                            text = ColorTranslator.FromHtml("#842029");
-                        }
-                        else // Pendente
-                        {
-                            bg = ColorTranslator.FromHtml("#fff8c5");
-                            border = ColorTranslator.FromHtml("#d29922");
-                            text = ColorTranslator.FromHtml("#d29922");
-                        }
+                        if (status == "Pago") { bg = ColorTranslator.FromHtml("#d1e7dd"); border = ColorTranslator.FromHtml("#0f5132"); text = ColorTranslator.FromHtml("#0f5132"); }
+                        else if (status == "ATRASADO") { bg = ColorTranslator.FromHtml("#f8d7da"); border = ColorTranslator.FromHtml("#842029"); text = ColorTranslator.FromHtml("#842029"); }
+                        else { bg = ColorTranslator.FromHtml("#fff8c5"); border = ColorTranslator.FromHtml("#d29922"); text = ColorTranslator.FromHtml("#d29922"); }
 
                         using (var b = new SolidBrush(bg)) e.Graphics.FillRectangle(b, r);
                         using (var p = new Pen(border, 2)) e.Graphics.DrawRectangle(p, r);
                         TextRenderer.DrawText(e.Graphics, status.ToUpper(), new Font("Segoe UI", 9, FontStyle.Bold), r, text, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
                     }
-                    else if (ac) // --- AÇÃO ---
+                    else if (ac)
                     {
                         if (i.StatusDescricao != "Pago")
                         {
@@ -486,28 +487,11 @@ namespace SistemaFinanceiro.Views
                         else
                         {
                             bool pagouAtrasado = false;
-                            if (i.DataPagamento.HasValue)
-                            {
-                                pagouAtrasado = i.DataPagamento.Value.Date > i.DataVencimento.Date;
-                            }
+                            if (i.DataPagamento.HasValue) pagouAtrasado = i.DataPagamento.Value.Date > i.DataVencimento.Date;
 
-                            string textoAcao;
-                            Color bgAcao, borderAcao, textAcao;
-
-                            if (pagouAtrasado)
-                            {
-                                textoAcao = "PAGO C/ ATRASO";
-                                bgAcao = ColorTranslator.FromHtml("#fff3cd");
-                                borderAcao = ColorTranslator.FromHtml("#ffc107");
-                                textAcao = ColorTranslator.FromHtml("#856404");
-                            }
-                            else
-                            {
-                                textoAcao = "PAGO NO PRAZO";
-                                bgAcao = ColorTranslator.FromHtml("#c3e6cb");
-                                borderAcao = ColorTranslator.FromHtml("#155724");
-                                textAcao = ColorTranslator.FromHtml("#155724");
-                            }
+                            string textoAcao; Color bgAcao, borderAcao, textAcao;
+                            if (pagouAtrasado) { textoAcao = "PAGO C/ ATRASO"; bgAcao = ColorTranslator.FromHtml("#fff3cd"); borderAcao = ColorTranslator.FromHtml("#ffc107"); textAcao = ColorTranslator.FromHtml("#856404"); }
+                            else { textoAcao = "PAGO NO PRAZO"; bgAcao = ColorTranslator.FromHtml("#c3e6cb"); borderAcao = ColorTranslator.FromHtml("#155724"); textAcao = ColorTranslator.FromHtml("#155724"); }
 
                             using (var b = new SolidBrush(bgAcao)) e.Graphics.FillRectangle(b, r);
                             using (var p = new Pen(borderAcao, 2)) e.Graphics.DrawRectangle(p, r);
@@ -558,14 +542,6 @@ namespace SistemaFinanceiro.Views
                 LoadData();
             }
             catch (Exception ex) { DarkBox.Mostrar(ex.Message); }
-        }
-
-        private bool IsBolsistaMatch(Cobranca x, string filtro)
-        {
-            bool ehBolsista = x.BolsistaId.HasValue && x.BolsistaId.Value != 6;
-            if (filtro == "Somente Bolsistas") return ehBolsista;
-            if (filtro == "Não Bolsistas") return !ehBolsista;
-            return true;
         }
 
         private void AddFooter()
@@ -639,22 +615,8 @@ namespace SistemaFinanceiro.Views
         private TextBox Input(string ph)
         {
             var t = new TextBox { Font = new Font("Segoe UI", 11), Text = ph, TextAlign = HorizontalAlignment.Center };
-            t.GotFocus += (s, e) =>
-            {
-                if (t.Text == ph)
-                {
-                    t.Text = "";
-                    t.ForeColor = TemaGlobal.CorTexto;
-                }
-            };
-            t.LostFocus += (s, e) =>
-            {
-                if (string.IsNullOrWhiteSpace(t.Text))
-                {
-                    t.Text = ph;
-                    t.ForeColor = Color.Gray;
-                }
-            };
+            t.GotFocus += (s, e) => { if (t.Text == ph) { t.Text = ""; t.ForeColor = TemaGlobal.CorTexto; } };
+            t.LostFocus += (s, e) => { if (string.IsNullOrWhiteSpace(t.Text)) { t.Text = ph; t.ForeColor = Color.Gray; } };
             return t;
         }
 

@@ -1,4 +1,4 @@
-﻿using Microsoft.Data.SqlClient;
+﻿using MySqlConnector;
 using SistemaFinanceiro.Database;
 using SistemaFinanceiro.Models;
 using System;
@@ -22,22 +22,22 @@ namespace SistemaFinanceiro.Repositories
                         c.id_cobranca AS IdCobranca,
                         c.valor_base AS ValorBase,
                         c.data_vencimento AS DataVencimento,
-                        c.entidade_id AS AlunoId,
+                        c.id_entidade AS AlunoId,
                         c.status_id AS StatusId,
                         CASE WHEN c.status_id = 2 THEN c.updated_at ELSE NULL END AS DataPagamento,
                         e.nome AS NomeAluno,
                         e.cpf_atleta AS CpfAluno,
                         e.bolsista_id,
                         e.status AS StatusAluno,
-                        ISNULL(cat.descricao, 'Sem Categoria') AS CategoriaDescricao
+                        IFNULL(cat.descricao, 'Sem Categoria') AS CategoriaDescricao
                     FROM Cobrancas c
-                    INNER JOIN Entidades e ON c.entidade_id = e.id_entidade
+                    INNER JOIN Entidades e ON c.id_entidade = e.id_entidade
                     LEFT JOIN Categorias cat ON e.categoria_id = cat.categoria_id 
                     ORDER BY 
                         CASE WHEN c.status_id = 2 THEN 1 ELSE 0 END, 
                         c.data_vencimento DESC";
 
-                using (var comando = new SqlCommand(query, conexao))
+                using (var comando = new MySqlCommand(query, conexao))
                 using (var leitor = comando.ExecuteReader())
                 {
                     while (leitor.Read())
@@ -45,7 +45,7 @@ namespace SistemaFinanceiro.Repositories
                         var cobranca = new Cobranca();
                         cobranca.IdCobranca = Convert.ToInt32(leitor["IdCobranca"]);
                         cobranca.AlunoId = Convert.ToInt32(leitor["AlunoId"]);
-                        cobranca.BolsistaId = Convert.ToInt32(leitor["bolsista_id"]);
+                        cobranca.BolsistaId = leitor["bolsista_id"] != DBNull.Value ? Convert.ToInt32(leitor["bolsista_id"]) : 0;
                         cobranca.ValorBase = Convert.ToDecimal(leitor["ValorBase"]);
                         cobranca.DataVencimento = Convert.ToDateTime(leitor["DataVencimento"]);
 
@@ -72,10 +72,10 @@ namespace SistemaFinanceiro.Repositories
             using (var conexao = DbConnection.GetConnection())
             {
                 conexao.Open();
-                string queryAlunos = "SELECT id_entidade, ISNULL(valor_mensalidade, 100) as Valor, ISNULL(dia_vencimento, 10) as Dia FROM Entidades WHERE status = 'Ativo'";
+                string queryAlunos = "SELECT id_entidade, IFNULL(valor_mensalidade, 100) as Valor, IFNULL(dia_vencimento, 10) as Dia FROM Entidades WHERE status = 'Ativo'";
                 var listaAlunosAtivos = new List<dynamic>();
 
-                using (var cmd = new SqlCommand(queryAlunos, conexao))
+                using (var cmd = new MySqlCommand(queryAlunos, conexao))
                 using (var reader = cmd.ExecuteReader())
                 {
                     while (reader.Read())
@@ -93,14 +93,15 @@ namespace SistemaFinanceiro.Repositories
                     string referenciaMes = dataVencimento.ToString("MM/yyyy");
 
                     string queryVerifica = "SELECT COUNT(*) FROM Cobrancas WHERE entidade_id = @id AND mes_referencia = @mesRef";
-                    using (var cmdVerifica = new SqlCommand(queryVerifica, conexao))
+                    using (var cmdVerifica = new MySqlCommand(queryVerifica, conexao))
                     {
                         cmdVerifica.Parameters.AddWithValue("@id", (int)aluno.Id);
                         cmdVerifica.Parameters.AddWithValue("@mesRef", referenciaMes);
-                        if ((int)cmdVerifica.ExecuteScalar() == 0)
+
+                        if (Convert.ToInt32(cmdVerifica.ExecuteScalar()) == 0)
                         {
-                            string queryInsert = "INSERT INTO Cobrancas (entidade_id, valor_base, data_vencimento, mes_referencia, status_id, created_at) VALUES (@id, @valor, @dataVenc, @mesRef, 1, GETDATE())";
-                            using (var cmdInsert = new SqlCommand(queryInsert, conexao))
+                            string queryInsert = "INSERT INTO Cobrancas (entidade_id, valor_base, data_vencimento, mes_referencia, status_id, created_at) VALUES (@id, @valor, @dataVenc, @mesRef, 1, NOW())";
+                            using (var cmdInsert = new MySqlCommand(queryInsert, conexao))
                             {
                                 cmdInsert.Parameters.AddWithValue("@id", (int)aluno.Id);
                                 cmdInsert.Parameters.AddWithValue("@valor", (decimal)aluno.Valor);
@@ -119,7 +120,7 @@ namespace SistemaFinanceiro.Repositories
             using (var conexao = DbConnection.GetConnection())
             {
                 conexao.Open();
-                using (var comando = new SqlCommand("UPDATE Cobrancas SET status_id = 2, updated_at = GETDATE() WHERE id_cobranca = @id", conexao))
+                using (var comando = new MySqlCommand("UPDATE Cobrancas SET status_id = 2, updated_at = NOW() WHERE id_cobranca = @id", conexao))
                 {
                     comando.Parameters.AddWithValue("@id", idCobranca);
                     comando.ExecuteNonQuery();
@@ -127,7 +128,6 @@ namespace SistemaFinanceiro.Repositories
             }
         }
 
-        // CORREÇÃO: Filtra para somar pendências APENAS de alunos ATIVOS
         public TotaisDTO ObterTotaisMes(string mesAnoReferencia)
         {
             var partesData = mesAnoReferencia.Split('/');
@@ -139,30 +139,28 @@ namespace SistemaFinanceiro.Repositories
             {
                 conexao.Open();
 
-                // Recebidos (Dinheiro que entrou, independente se o aluno saiu depois)
                 string queryRecebido = @"
-                    SELECT ISNULL(SUM(c.valor_base), 0) 
+                    SELECT IFNULL(SUM(c.valor_base), 0) 
                     FROM Cobrancas c
                     WHERE c.status_id = 2 
                     AND MONTH(c.updated_at) = @m AND YEAR(c.updated_at) = @a";
 
-                // Pendentes (Só conta se o aluno estiver ATIVO no sistema)
                 string queryPendente = @"
-                    SELECT ISNULL(SUM(c.valor_base), 0) 
+                    SELECT IFNULL(SUM(c.valor_base), 0) 
                     FROM Cobrancas c
-                    INNER JOIN Entidades e ON c.entidade_id = e.id_entidade
+                    INNER JOIN Entidades e ON c.id_entidade = e.id_entidade
                     WHERE c.status_id = 1 
                     AND e.status = 'Ativo' 
                     AND MONTH(c.data_vencimento) = @m AND YEAR(c.data_vencimento) = @a";
 
-                using (var cmd = new SqlCommand(queryRecebido, conexao))
+                using (var cmd = new MySqlCommand(queryRecebido, conexao))
                 {
                     cmd.Parameters.AddWithValue("@m", mes);
                     cmd.Parameters.AddWithValue("@a", ano);
                     totais.Recebido = Convert.ToDecimal(cmd.ExecuteScalar());
                 }
 
-                using (var cmd = new SqlCommand(queryPendente, conexao))
+                using (var cmd = new MySqlCommand(queryPendente, conexao))
                 {
                     cmd.Parameters.AddWithValue("@m", mes);
                     cmd.Parameters.AddWithValue("@a", ano);

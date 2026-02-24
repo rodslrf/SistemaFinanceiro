@@ -16,17 +16,22 @@ namespace SistemaFinanceiro.Views
         private int? idEdicao = null;
 
         private TextBox campoNome, campoEmail1, campoEmail2, campoValorMensalidade, campoDiaVencimento, campoObservacao;
+        private TextBox campoEmailAtleta, campoNomeResponsavel, campoNomeResponsavel2;
         private MaskedTextBox campoCpfAluno, campoTelefoneAluno, campoCpfPais1, campoTelefonePais1, campoCpfPais2, campoTelefonePais2;
         private DateTimePicker seletorDataNasc;
-        private ComboBox comboCategoria, comboTecnico, comboBolsista;
+        private ComboBox comboCategoria, comboTecnico, comboBolsista, comboModalidade;
         private Button botaoAdicionarTecnico;
         private Label labelTitulo;
         private FlowLayoutPanel painelRolagem;
 
-        // Variáveis do Aviso
+        // Painéis de Aviso
         private Panel _pnlAvisoFinanceiro;
+        private Panel _pnlAvisoCpf;
         private Panel _cardFinanceiroPanel;
+        private Panel _cardAlunoPanel;
+        private TableLayoutPanel _gridAluno;
         private Label _lblAvisoTexto;
+
         private string _valorOriginal = "";
         private string _diaOriginal = "";
         private bool _carregandoDados = false;
@@ -141,13 +146,11 @@ namespace SistemaFinanceiro.Views
             painelCabecalho.Controls.Add(labelTitulo);
             painelCabecalho.Controls.Add(labelFechar);
 
-            // --- 2. RODAPÉ (BOTÕES AJUSTADOS) ---
             Panel painelBotoes = new Panel
             {
                 Dock = DockStyle.Bottom,
                 Height = 80,
                 BackColor = corFundo,
-                // Padding ajustado para dar espaço nas laterais, mas deixamos o topo/base livres para o Flow controlar
                 Padding = new Padding(0, 0, 30, 0)
             };
 
@@ -157,7 +160,6 @@ namespace SistemaFinanceiro.Views
                 AutoSize = true,
                 FlowDirection = FlowDirection.LeftToRight,
                 WrapContents = false,
-                // AQUI ESTÁ O AJUSTE: 20px de margem superior empurra os botões para baixo
                 Padding = new Padding(0, 20, 0, 0)
             };
 
@@ -178,20 +180,35 @@ namespace SistemaFinanceiro.Views
 
             InicializarCampos();
 
-            var cardAluno = CriarCard("DADOS DO ALUNO", 360);
-            AdicionarCampoGrid(cardAluno.Grid, "Nome Completo", campoNome, 0, 3);
+            // --- CARD DADOS DO ALUNO ---
+            var cardAluno = CriarCard("DADOS DO ALUNO", 450);
+            _cardAlunoPanel = cardAluno.Panel;
+            _gridAluno = cardAluno.Grid;
+
+            AdicionarCampoGrid(cardAluno.Grid, "Nome Completo", campoNome, 0, 2);
+            AdicionarCampoPersonalizado(cardAluno.Grid, "Modalidade", comboModalidade, 0, 2);
             AdicionarCampoGrid(cardAluno.Grid, "Data de Nascimento", seletorDataNasc, 1, 1, 0);
             AdicionarCampoGrid(cardAluno.Grid, "CPF do Aluno", campoCpfAluno, 1, 1, 1);
             AdicionarCampoGrid(cardAluno.Grid, "Telefone do Aluno", campoTelefoneAluno, 1, 1, 2);
+            AdicionarCampoGrid(cardAluno.Grid, "E-mail do Atleta", campoEmailAtleta, 2, 3);
 
-            var cardResp = CriarCard("CONTATO E RESPONSÁVEIS", 360);
-            AdicionarCampoGrid(cardResp.Grid, "CPF Responsável 1 *", campoCpfPais1, 0, 1, 0);
-            AdicionarCampoGrid(cardResp.Grid, "Telefone Resp. 1 *", campoTelefonePais1, 0, 1, 1);
-            AdicionarCampoGrid(cardResp.Grid, "E-mail Resp. 1", campoEmail1, 0, 1, 2);
-            AdicionarCampoGrid(cardResp.Grid, "CPF Responsável 2 (Opcional)", campoCpfPais2, 1, 1, 0);
-            AdicionarCampoGrid(cardResp.Grid, "Telefone Resp. 2 (Opcional)", campoTelefonePais2, 1, 1, 1);
-            AdicionarCampoGrid(cardResp.Grid, "E-mail Resp. 2 (Opcional)", campoEmail2, 1, 1, 2);
+            // Aviso CPF - Removido o ícone duplicado do texto
+            _pnlAvisoCpf = CriarPainelAviso("Aluno já cadastrado com esse CPF!");
+            cardAluno.Grid.Controls.Add(_pnlAvisoCpf, 0, 3);
+            cardAluno.Grid.SetColumnSpan(_pnlAvisoCpf, 3);
 
+            // --- CARD RESPONSÁVEIS ---
+            var cardResp = CriarCard("CONTATO E RESPONSÁVEIS", 600);
+            AdicionarCampoGrid(cardResp.Grid, "Nome do Responsável 1", campoNomeResponsavel, 0, 3);
+            AdicionarCampoGrid(cardResp.Grid, "CPF Responsável 1", campoCpfPais1, 1, 1, 0);
+            AdicionarCampoGrid(cardResp.Grid, "Telefone Resp. 1", campoTelefonePais1, 1, 1, 1);
+            AdicionarCampoGrid(cardResp.Grid, "E-mail Resp. 1", campoEmail1, 1, 1, 2);
+            AdicionarCampoGrid(cardResp.Grid, "Nome do Responsável 2", campoNomeResponsavel2, 2, 3);
+            AdicionarCampoGrid(cardResp.Grid, "CPF Responsável 2", campoCpfPais2, 3, 1, 0);
+            AdicionarCampoGrid(cardResp.Grid, "Telefone Resp. 2", campoTelefonePais2, 3, 1, 1);
+            AdicionarCampoGrid(cardResp.Grid, "E-mail Resp. 2", campoEmail2, 3, 1, 2);
+
+            // --- CARD FINANCEIRO ---
             var cardFinTuple = CriarCard("MATRÍCULA E FINANCEIRO", 360);
             _cardFinanceiroPanel = cardFinTuple.Panel;
 
@@ -215,7 +232,6 @@ namespace SistemaFinanceiro.Views
             AdicionarCampoGrid(cardFinTuple.Grid, "Valor Mensalidade (R$)", campoValorMensalidade, 1, 1, 1);
 
             _pnlAvisoFinanceiro = AdicionarAvisoFinanceiro();
-            _pnlAvisoFinanceiro.Visible = false;
             cardFinTuple.Grid.Controls.Add(_pnlAvisoFinanceiro, 0, 2);
             cardFinTuple.Grid.SetColumnSpan(_pnlAvisoFinanceiro, 3);
 
@@ -238,9 +254,18 @@ namespace SistemaFinanceiro.Views
             this.PerformLayout();
         }
 
-        private Panel AdicionarAvisoFinanceiro()
+        private Panel CriarPainelAviso(string textoInicial)
         {
-            Panel pnl = new Panel { Dock = DockStyle.Fill, Height = 40, Margin = new Padding(0, 5, 0, 0), Visible = false };
+            Panel pnl = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 45,
+                MinimumSize = new Size(0, 45),
+                Margin = new Padding(0, 5, 0, 0),
+                Visible = false,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink
+            };
 
             TableLayoutPanel grid = new TableLayoutPanel
             {
@@ -252,7 +277,6 @@ namespace SistemaFinanceiro.Views
             grid.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
 
-            // Ícone
             Label lblIcone = new Label
             {
                 Text = "⚠️",
@@ -264,23 +288,67 @@ namespace SistemaFinanceiro.Views
                 TextAlign = ContentAlignment.MiddleLeft
             };
 
-            // Texto
-            _lblAvisoTexto = new Label
+            Label lblTexto = new Label
             {
-                Text = "",
+                Text = textoInicial,
                 ForeColor = Color.Yellow,
                 Font = new Font("Segoe UI", 10, FontStyle.Bold),
                 AutoSize = true,
                 Margin = new Padding(5, 0, 0, 0),
-                Anchor = AnchorStyles.Left, 
+                Anchor = AnchorStyles.Left,
                 TextAlign = ContentAlignment.MiddleLeft
             };
 
             grid.Controls.Add(lblIcone, 0, 0);
-            grid.Controls.Add(_lblAvisoTexto, 1, 0);
+            grid.Controls.Add(lblTexto, 1, 0);
             pnl.Controls.Add(grid);
 
             return pnl;
+        }
+
+        private Panel AdicionarAvisoFinanceiro()
+        {
+            var pnl = CriarPainelAviso("");
+            var grid = (TableLayoutPanel)pnl.Controls[0];
+            _lblAvisoTexto = (Label)grid.Controls[1];
+            return pnl;
+        }
+
+        private void VerificarCpfExistente(object sender, EventArgs e)
+        {
+            if (_carregandoDados) return;
+
+            string cpfLimpo = LimparNumeros(campoCpfAluno.Text);
+
+            if (cpfLimpo.Length == 11)
+            {
+                try
+                {
+                    var repo = new EntidadeRepository();
+                    bool existe = repo.ExisteCpf(cpfLimpo, idEdicao ?? 0);
+
+                    if (_pnlAvisoCpf.Visible != existe)
+                    {
+                        _cardAlunoPanel.SuspendLayout();
+                        _pnlAvisoCpf.Visible = existe;
+                        _cardAlunoPanel.Height = existe ? 540 : 450;
+                        _cardAlunoPanel.ResumeLayout();
+                        _cardAlunoPanel.PerformLayout();
+                    }
+                }
+                catch (Exception) { }
+            }
+            else
+            {
+                if (_pnlAvisoCpf.Visible)
+                {
+                    _cardAlunoPanel.SuspendLayout();
+                    _pnlAvisoCpf.Visible = false;
+                    _cardAlunoPanel.Height = 450;
+                    _cardAlunoPanel.ResumeLayout();
+                    _cardAlunoPanel.PerformLayout();
+                }
+            }
         }
 
         private void VerificarAlteracaoFinanceira(object sender, EventArgs e)
@@ -294,17 +362,17 @@ namespace SistemaFinanceiro.Views
             bool mudouDia = diaAtual != _diaOriginal;
             bool houveAlgumaAlteracao = mudouValor || mudouDia;
 
-            if (mudouValor && mudouDia)
-                _lblAvisoTexto.Text = "A alteração na data e no valor de pagamento só será efetuada no próximo mês.";
-            else if (mudouDia)
-                _lblAvisoTexto.Text = "A alteração na data de pagamento só será efetuada no próximo mês.";
-            else if (mudouValor)
-                _lblAvisoTexto.Text = "A alteração no valor do pagamento só será efetuada no próximo mês.";
+            if (mudouValor && mudouDia) _lblAvisoTexto.Text = "A alteração na data e no valor de pagamento só será efetuada no próximo mês.";
+            else if (mudouDia) _lblAvisoTexto.Text = "A alteração na data de pagamento só será efetuada no próximo mês.";
+            else if (mudouValor) _lblAvisoTexto.Text = "A alteração no valor do pagamento só será efetuada no próximo mês.";
 
             if (_pnlAvisoFinanceiro.Visible != houveAlgumaAlteracao)
             {
+                _cardFinanceiroPanel.SuspendLayout();
                 _pnlAvisoFinanceiro.Visible = houveAlgumaAlteracao;
                 _cardFinanceiroPanel.Height = houveAlgumaAlteracao ? 420 : 360;
+                _cardFinanceiroPanel.ResumeLayout();
+                _cardFinanceiroPanel.PerformLayout();
             }
         }
 
@@ -319,7 +387,13 @@ namespace SistemaFinanceiro.Views
         private void InicializarCampos()
         {
             campoNome = CriarInputTexto();
+            campoEmailAtleta = CriarInputTexto();
+            campoNomeResponsavel = CriarInputTexto();
+            campoNomeResponsavel2 = CriarInputTexto();
+
             campoCpfAluno = CriarInputMask();
+            campoCpfAluno.TextChanged += VerificarCpfExistente;
+
             campoTelefoneAluno = CriarInputMask();
             campoTelefonePais1 = CriarInputMask();
             campoCpfPais1 = CriarInputMask();
@@ -355,6 +429,8 @@ namespace SistemaFinanceiro.Views
             comboCategoria = CriarCombo();
             comboBolsista = CriarCombo();
             comboTecnico = CriarCombo();
+            comboModalidade = CriarCombo();
+            comboModalidade.Items.AddRange(new object[] { "Vôlei", "Futsal", "Handebol" });
 
             botaoAdicionarTecnico = new Button
             {
@@ -368,11 +444,9 @@ namespace SistemaFinanceiro.Views
                 Dock = DockStyle.Right,
                 Width = 45
             };
-
             botaoAdicionarTecnico.FlatAppearance.BorderSize = 0;
             botaoAdicionarTecnico.MouseEnter += (s, e) => botaoAdicionarTecnico.ForeColor = corDestaque;
             botaoAdicionarTecnico.MouseLeave += (s, e) => botaoAdicionarTecnico.ForeColor = corRotulo;
-
             botaoAdicionarTecnico.Click += EventoGerenciarTecnicos;
         }
 
@@ -386,6 +460,13 @@ namespace SistemaFinanceiro.Views
             grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33F));
             grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33F));
             grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33F));
+
+            grid.RowStyles.Clear();
+            grid.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            grid.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            grid.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            grid.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
             card.Controls.Add(grid);
             card.Controls.Add(linha);
             card.Controls.Add(lblTitulo);
@@ -397,15 +478,43 @@ namespace SistemaFinanceiro.Views
             if (string.IsNullOrWhiteSpace(campoNome.Text)) { MessageBox.Show("Nome obrigatório!"); return; }
             if (comboTecnico.SelectedValue == null) { MessageBox.Show("Selecione um técnico!"); return; }
 
+            string cpfLimpo = LimparNumeros(campoCpfAluno.Text);
+            if (!string.IsNullOrEmpty(cpfLimpo))
+            {
+                var repoVerificacao = new EntidadeRepository();
+                if (repoVerificacao.ExisteCpf(cpfLimpo, idEdicao ?? 0))
+                {
+                    MessageBox.Show("Este CPF de aluno já está cadastrado para outro atleta!", "Cpf Duplicado", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    campoCpfAluno.Focus();
+                    return;
+                }
+            }
+
             decimal.TryParse(campoValorMensalidade.Text, out decimal valor);
             int.TryParse(campoDiaVencimento.Text, out int dia);
+
+            int idCat = 1;
+            if (comboCategoria.SelectedValue != null) int.TryParse(comboCategoria.SelectedValue.ToString(), out idCat);
+
+            int idTec = 0;
+            if (comboTecnico.SelectedValue != null) int.TryParse(comboTecnico.SelectedValue.ToString(), out idTec);
+
+            int? idBolsa = null;
+            if (comboBolsista.SelectedValue != null)
+            {
+                if (int.TryParse(comboBolsista.SelectedValue.ToString(), out int b)) idBolsa = b;
+            }
 
             var aluno = new Entidade
             {
                 Id = idEdicao ?? 0,
                 Nome = campoNome.Text.Trim(),
-                CpfAtleta = LimparNumeros(campoCpfAluno.Text),
+                CpfAtleta = cpfLimpo,
                 telefone_aluno = LimparNumeros(campoTelefoneAluno.Text),
+                email_atleta = campoEmailAtleta.Text.Trim(),
+                modalidade = comboModalidade.Text,
+                nome_responsavel = campoNomeResponsavel.Text.Trim(),
+                nome_responsavel2 = campoNomeResponsavel2.Text.Trim(),
                 DataNascimento = seletorDataNasc.Value,
                 EmailPais = campoEmail1.Text,
                 TelefonePais = LimparNumeros(campoTelefonePais1.Text),
@@ -414,9 +523,9 @@ namespace SistemaFinanceiro.Views
                 telefone_pais2 = LimparNumeros(campoTelefonePais2.Text),
                 cpf_pais2 = LimparNumeros(campoCpfPais2.Text),
                 observacao = campoObservacao.Text.Trim(),
-                Categoria_id = (int)(comboCategoria.SelectedValue ?? 1),
-                id_tecnico = (int)comboTecnico.SelectedValue,
-                bolsista_id = (int?)comboBolsista.SelectedValue,
+                Categoria_id = idCat,
+                id_tecnico = idTec,
+                bolsista_id = idBolsa,
                 ValorMensalidade = valor,
                 DiaVencimento = dia > 0 ? dia : 10,
                 Status = "Ativo",
@@ -429,43 +538,58 @@ namespace SistemaFinanceiro.Views
                 if (idEdicao.HasValue) repo.Atualizar(aluno); else repo.Inserir(aluno);
                 VoltarParaLista?.Invoke(this, EventArgs.Empty);
             }
-            catch (Exception ex) { MessageBox.Show("Erro: " + ex.Message); }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Erro ao salvar: " + ex.Message);
+            }
         }
 
         private void CarregarDados(int id)
         {
             _carregandoDados = true;
+            try
+            {
+                var aluno = new EntidadeRepository().ObterPorId(id);
+                if (aluno == null) return;
 
-            var aluno = new EntidadeRepository().ObterPorId(id);
-            if (aluno == null) return;
+                labelTitulo.Text = "Editar Aluno";
+                campoNome.Text = aluno.Nome;
+                campoEmailAtleta.Text = aluno.email_atleta;
+                comboModalidade.Text = aluno.modalidade;
+                campoNomeResponsavel.Text = aluno.nome_responsavel;
+                campoNomeResponsavel2.Text = aluno.nome_responsavel2;
+                PreencherMascara(campoCpfAluno, aluno.CpfAtleta, @"000\.000\.000-00");
+                string telA = LimparNumeros(aluno.telefone_aluno);
+                PreencherMascara(campoTelefoneAluno, telA, (telA.Length > 10) ? "(00) 00000-0000" : "(00) 0000-0000");
+                seletorDataNasc.Value = aluno.DataNascimento;
+                PreencherMascara(campoCpfPais1, aluno.CpfPais, @"000\.000\.000-00");
+                string telP1 = LimparNumeros(aluno.TelefonePais);
+                PreencherMascara(campoTelefonePais1, telP1, (telP1.Length > 10) ? "(00) 00000-0000" : "(00) 0000-0000");
+                campoEmail1.Text = aluno.EmailPais;
+                PreencherMascara(campoCpfPais2, aluno.cpf_pais2, @"000\.000\.000-00");
+                string telP2 = LimparNumeros(aluno.telefone_pais2);
+                PreencherMascara(campoTelefonePais2, telP2, (telP2.Length > 10) ? "(00) 00000-0000" : "(00) 0000-0000");
+                campoEmail2.Text = aluno.email_pais2 ?? "";
+                campoObservacao.Text = aluno.observacao;
 
-            labelTitulo.Text = "Editar Aluno";
-            campoNome.Text = aluno.Nome;
-            PreencherMascara(campoCpfAluno, aluno.CpfAtleta, @"000\.000\.000-00");
-            string telA = LimparNumeros(aluno.telefone_aluno);
-            PreencherMascara(campoTelefoneAluno, telA, (telA.Length > 10) ? "(00) 00000-0000" : "(00) 0000-0000");
-            seletorDataNasc.Value = aluno.DataNascimento;
-            PreencherMascara(campoCpfPais1, aluno.CpfPais, @"000\.000\.000-00");
-            string telP1 = LimparNumeros(aluno.TelefonePais);
-            PreencherMascara(campoTelefonePais1, telP1, (telP1.Length > 10) ? "(00) 00000-0000" : "(00) 0000-0000");
-            campoEmail1.Text = aluno.EmailPais;
-            PreencherMascara(campoCpfPais2, aluno.cpf_pais2, @"000\.000\.000-00");
-            string telP2 = LimparNumeros(aluno.telefone_pais2);
-            PreencherMascara(campoTelefonePais2, telP2, (telP2.Length > 10) ? "(00) 00000-0000" : "(00) 0000-0000");
-            campoEmail2.Text = aluno.email_pais2 ?? "";
-            campoObservacao.Text = aluno.observacao;
+                campoValorMensalidade.Text = aluno.ValorMensalidade.ToString("N2");
+                campoDiaVencimento.Text = aluno.DiaVencimento.ToString("D2");
 
-            campoValorMensalidade.Text = aluno.ValorMensalidade.ToString("N2");
-            campoDiaVencimento.Text = aluno.DiaVencimento.ToString("D2");
+                comboCategoria.SelectedValue = aluno.Categoria_id;
+                comboTecnico.SelectedValue = aluno.id_tecnico;
 
-            comboCategoria.SelectedValue = aluno.Categoria_id;
-            comboTecnico.SelectedValue = aluno.id_tecnico;
-            comboBolsista.SelectedValue = aluno.bolsista_id;
+                if (aluno.bolsista_id != null && aluno.bolsista_id > 0) comboBolsista.SelectedValue = aluno.bolsista_id;
+                else if (comboBolsista.Items.Count > 0) comboBolsista.SelectedIndex = 0;
 
-            _valorOriginal = campoValorMensalidade.Text.Trim();
-            _diaOriginal = campoDiaVencimento.Text.Trim();
+                _valorOriginal = campoValorMensalidade.Text.Trim();
+                _diaOriginal = campoDiaVencimento.Text.Trim();
 
-            _carregandoDados = false;
+                VerificarCpfExistente(null, null);
+            }
+            finally
+            {
+                _carregandoDados = false;
+            }
         }
 
         private void PreencherMascara(MaskedTextBox msk, string valor, string mascara)
@@ -477,13 +601,21 @@ namespace SistemaFinanceiro.Views
 
         private void CarregarListas()
         {
-            comboCategoria.DataSource = new EntidadeRepository().ObterCategorias();
-            comboCategoria.DisplayMember = "Descricao"; comboCategoria.ValueMember = "Id";
-            comboTecnico.DataSource = new TecnicoRepository().ObterTodosAtivos();
-            comboTecnico.DisplayMember = "Nome"; comboTecnico.ValueMember = "Id";
-            comboBolsista.DataSource = new BolsistaRepository().ObterTodosAtivos();
-            comboBolsista.DisplayMember = "Descricao"; comboBolsista.ValueMember = "Id";
-            comboTecnico.SelectedIndex = comboBolsista.SelectedIndex = -1;
+            try
+            {
+                var repo = new EntidadeRepository();
+                comboCategoria.DataSource = repo.ObterCategorias();
+                comboCategoria.DisplayMember = "Descricao"; comboCategoria.ValueMember = "Id";
+
+                comboTecnico.DataSource = new TecnicoRepository().ObterTodosAtivos();
+                comboTecnico.DisplayMember = "Nome"; comboTecnico.ValueMember = "Id";
+
+                comboBolsista.DataSource = new BolsistaRepository().ObterTodosAtivos();
+                comboBolsista.DisplayMember = "Descricao"; comboBolsista.ValueMember = "Id";
+
+                comboTecnico.SelectedIndex = comboBolsista.SelectedIndex = -1;
+            }
+            catch { }
         }
 
         private void EventoGerenciarTecnicos(object s, EventArgs e)
@@ -491,7 +623,6 @@ namespace SistemaFinanceiro.Views
             using (var formGerenciar = new FormGerenciarTecnicos())
             {
                 formGerenciar.ShowDialog();
-
                 CarregarListas();
             }
         }

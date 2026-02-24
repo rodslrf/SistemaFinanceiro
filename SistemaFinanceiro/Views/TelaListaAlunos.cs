@@ -14,8 +14,13 @@ namespace SistemaFinanceiro.Views
         private TextBox _search;
         private DarkComboBox _cmbCat, _cmbStatus, _cmbBolsa;
         private DataGridView _grid;
-        private Label _lblTotalBolsistas;
-        private Panel _pnlStats;
+
+        // Labels para atualizar os números
+        private Label _lblTotalBolsistas, _lblTotalAlunos;
+
+        // Painel container dos cards (para mover eles juntos no resize)
+        private FlowLayoutPanel _pnlContainerStats;
+
         private List<dynamic> _data = new List<dynamic>();
         private bool _sortAsc = true;
 
@@ -47,11 +52,17 @@ namespace SistemaFinanceiro.Views
                 _grid.ColumnHeadersDefaultCellStyle.BackColor = _grid.ColumnHeadersDefaultCellStyle.SelectionBackColor = TemaGlobal.CorSidebar;
             }
 
-            if (_pnlStats != null)
+            // Atualiza a cor de fundo dos cards de estatística
+            if (_pnlContainerStats != null)
             {
                 bool escuro = TemaGlobal.ModoEscuro;
-                _pnlStats.BackColor = escuro ? ColorTranslator.FromHtml("#21262d") : ColorTranslator.FromHtml("#F7F7F8");
-                _pnlStats.Invalidate();
+                Color corCard = escuro ? ColorTranslator.FromHtml("#21262d") : ColorTranslator.FromHtml("#F7F7F8");
+
+                foreach (Control card in _pnlContainerStats.Controls)
+                {
+                    card.BackColor = corCard;
+                    card.Invalidate(); // Força redesenho da borda
+                }
             }
 
             foreach (Control c in Controls)
@@ -62,10 +73,14 @@ namespace SistemaFinanceiro.Views
 
         private void RecursiveUpdate(Control c)
         {
+            // Ignora os labels de estatísticas para manter o Azul
+            if (c is Label && (c == _lblTotalBolsistas || c == _lblTotalAlunos)) return;
+
             if (c is Label) c.ForeColor = TemaGlobal.CorTexto;
             if (c is TextBox) { c.BackColor = TemaGlobal.CorSidebar; c.ForeColor = TemaGlobal.CorTexto; }
             if (c is DarkComboBox cmb) { cmb.ParentBackColor = TemaGlobal.CorSidebar; cmb.Invalidate(); }
             if (c is Panel) c.Invalidate();
+
             foreach (Control k in c.Controls) RecursiveUpdate(k);
         }
 
@@ -76,24 +91,25 @@ namespace SistemaFinanceiro.Views
             var h = new Panel { Dock = DockStyle.Top, Height = 80 };
             var t = new Label { Text = "Alunos Cadastrados", Font = new Font("Segoe UI", 22, FontStyle.Bold), AutoSize = true, Location = new Point(0, 10) };
 
-            _pnlStats = new Panel { Size = new Size(200, 35) };
-            _pnlStats.Paint += (s, e) =>
+            // Container para alinhar os cards um ao lado do outro
+            _pnlContainerStats = new FlowLayoutPanel
             {
-                var corBorda = TemaGlobal.ModoEscuro ? ColorTranslator.FromHtml("#30363d") : Color.Silver;
-                using (var p = new Pen(corBorda))
-                    e.Graphics.DrawRectangle(p, 0, 0, _pnlStats.Width - 1, _pnlStats.Height - 1);
+                AutoSize = true,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                BackColor = Color.Transparent,
+                Height = 40,
+                MinimumSize = new Size(350, 40) // Garante espaço mínimo para os dois cards
             };
 
-            _lblTotalBolsistas = new Label
-            {
-                Text = "🎓 Bolsistas: 0",
-                Dock = DockStyle.Fill,
-                TextAlign = ContentAlignment.MiddleCenter,
-                Font = new Font("Segoe UI", 10, FontStyle.Bold),
-                ForeColor = ColorTranslator.FromHtml("#58a6ff"),
-                AutoSize = false
-            };
-            _pnlStats.Controls.Add(_lblTotalBolsistas);
+            // Card 1: Total de Alunos (Passando 185 de largura para caber bem)
+            var cardAlunos = CriarCardStat("👥 Alunos Ativos: 0", 185, out _lblTotalAlunos);
+
+            // Card 2: Total de Bolsistas (Mantendo os 170 originais)
+            var cardBolsistas = CriarCardStat("🎓 Bolsistas: 0", 170, out _lblTotalBolsistas);
+
+            _pnlContainerStats.Controls.Add(cardAlunos);
+            _pnlContainerStats.Controls.Add(cardBolsistas);
 
             var b = new Button
             {
@@ -111,15 +127,17 @@ namespace SistemaFinanceiro.Views
             b.FlatAppearance.BorderSize = 0;
             b.Click += (s, e) => IrParaCadastro?.Invoke(this, EventArgs.Empty);
 
+            // Evento de Resize para manter os cards alinhados à esquerda do botão
             h.Resize += (s, e) =>
             {
                 b.Left = h.Width - 160;
-                _pnlStats.Left = b.Left - _pnlStats.Width - 20;
-                _pnlStats.Top = 18;
+                // Posiciona o container de stats à esquerda do botão com 20px de margem
+                _pnlContainerStats.Left = b.Left - _pnlContainerStats.Width - 20;
+                _pnlContainerStats.Top = 18;
             };
 
             h.Controls.Add(t);
-            h.Controls.Add(_pnlStats);
+            h.Controls.Add(_pnlContainerStats);
             h.Controls.Add(b);
 
             var f = new Panel { Dock = DockStyle.Top, Height = 80, Padding = new Padding(0, 15, 0, 15) };
@@ -138,9 +156,8 @@ namespace SistemaFinanceiro.Views
             _cmbCat.SelectedIndexChanged += (s, e) => Filter();
 
             _cmbStatus = new DarkComboBox();
-            // Mudei a ordem aqui para "Todos Status" ser o primeiro
             _cmbStatus.Items.AddRange(new[] { "Todos Status", "Ativos", "Inativos" });
-            _cmbStatus.SelectedIndex = 0; // Padrão: Mostrar Todos
+            _cmbStatus.SelectedIndex = 0;
             _cmbStatus.SelectedIndexChanged += (s, e) => Filter();
 
             _cmbBolsa = new DarkComboBox();
@@ -178,36 +195,64 @@ namespace SistemaFinanceiro.Views
             LoadData();
         }
 
+        // Método auxiliar para criar os cards com visual idêntico e largura dinâmica
+        private Panel CriarCardStat(string textoInicial, int largura, out Label lblRef)
+        {
+            var pnl = new Panel
+            {
+                Size = new Size(largura, 35), // Usa a largura que passamos por parâmetro
+                Margin = new Padding(0, 0, 10, 0) // Margem direita entre os cards
+            };
+
+            // Desenha a borda do card
+            pnl.Paint += (s, e) =>
+            {
+                var corBorda = TemaGlobal.ModoEscuro ? ColorTranslator.FromHtml("#30363d") : Color.Silver;
+                using (var p = new Pen(corBorda))
+                    e.Graphics.DrawRectangle(p, 0, 0, pnl.Width - 1, pnl.Height - 1);
+            };
+
+            lblRef = new Label
+            {
+                Text = textoInicial,
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleCenter,
+                Font = new Font("Segoe UI", 10, FontStyle.Bold),
+                ForeColor = ColorTranslator.FromHtml("#58a6ff"), // Ambos Azuis
+                AutoSize = false
+            };
+
+            pnl.Controls.Add(lblRef);
+            return pnl;
+        }
+
         private void LoadData()
         {
             try
             {
                 var r = new EntidadeRepository();
+
+                // 1. Carrega todos os alunos
                 _data = r.ObterTodos();
 
-                int qtdBolsistas = 0;
+                // 2. Conta Bolsistas Ativos (Método do Banco)
+                int qtdBolsistas = r.ContarBolsistasAtivos();
+
+                // 3. Conta Alunos Ativos (Usando a lista carregada em memória)
+                int qtdAlunosAtivos = 0;
                 if (_data != null)
                 {
-                    qtdBolsistas = _data.Count(x =>
-                    {
-                        try
-                        {
-                            var pBolsa = x.GetType().GetProperty("bolsista_id");
-                            var pStatus = x.GetType().GetProperty("Status");
-                            if (pBolsa == null || pStatus == null) return false;
-                            var vBolsa = pBolsa.GetValue(x, null);
-                            var vStatus = pStatus.GetValue(x, null)?.ToString();
-
-                            // Conta bolsistas apenas se estiverem ATIVOS
-                            return vBolsa != null && Convert.ToInt32(vBolsa) != 6 && vStatus != null && vStatus.Equals("Ativo", StringComparison.OrdinalIgnoreCase);
-                        }
-                        catch { return false; }
-                    });
+                    qtdAlunosAtivos = _data.Count(x =>
+                        x.GetType().GetProperty("Status")?.GetValue(x, null)?.ToString() == "Ativo"
+                    );
                 }
+
                 _lblTotalBolsistas.Text = $"🎓 Bolsistas: {qtdBolsistas}";
+                _lblTotalAlunos.Text = $"👥 Alunos Ativos: {qtdAlunosAtivos}";
+
                 Filter();
             }
-            catch { }
+            catch (Exception) { }
         }
 
         private void Filter()
@@ -222,12 +267,10 @@ namespace SistemaFinanceiro.Views
             var filtered = _data.Where(x =>
                 (string.IsNullOrEmpty(t) || (x.Nome != null && x.Nome.ToLower().Contains(t)) || (x.CpfAtleta != null && x.CpfAtleta.Contains(t))) &&
                 (c == "Todas Categorias" || (x.CategoriaDescricao != null && x.CategoriaDescricao == c)) &&
-                // Lógica de Status: Se for "Todos Status", mostra tudo. Se não, filtra igual.
                 (s == "Todos Status" || (x.Status != null && x.Status.Equals(s == "Ativos" ? "Ativo" : "Inativo", StringComparison.OrdinalIgnoreCase))) &&
                 (b == "Todos Alunos" || IsBolsistaMatch(x, b))
             ).ToList();
 
-            // Ordena: Ativos primeiro, depois Inativos, depois alfabeticamente
             _grid.DataSource = filtered.OrderBy(x => x.Status.Equals("Ativo", StringComparison.OrdinalIgnoreCase) ? 0 : 1).ThenBy(x => x.Nome).ToList();
         }
 
@@ -235,14 +278,17 @@ namespace SistemaFinanceiro.Views
         {
             try
             {
-                var prop = x.GetType().GetProperty("bolsista_id");
-                int? id = null;
+                var prop = x.GetType().GetProperty("BolsaDescricao");
+                string descricao = "Sem Bolsa";
+
                 if (prop != null)
                 {
                     var val = prop.GetValue(x, null);
-                    if (val != null) id = Convert.ToInt32(val);
+                    if (val != null) descricao = val.ToString();
                 }
-                bool ehBolsista = (id != null && id != 6);
+
+                bool ehBolsista = !descricao.Equals("Sem Bolsa", StringComparison.OrdinalIgnoreCase);
+
                 if (filtro == "Somente Bolsistas") return ehBolsista;
                 if (filtro == "Não Bolsistas") return !ehBolsista;
             }
